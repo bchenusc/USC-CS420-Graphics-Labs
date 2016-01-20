@@ -64,27 +64,41 @@ void myinit()
 {
   /* setup gl view here */
   glClearColor(0.0, 0.0, 0.0, 0.0);
+
+  glShadeModel(GL_SMOOTH);
+}
+
+void setupCamera()
+{
+
+}
+
+void cube()
+{
+	/* draw 1x1 cube about origin */
+	/* replace this code with your height field implementation */
+	/* you may also want to precede it with your
+	rotation/translation/scaling */
+	glBegin(GL_POLYGON);
+
+	glColor3f(1.0, 1.0, 1.0);
+	glVertex3f(-0.5, -0.5, 0.0);
+	glColor3f(0.0, 0.0, 1.0);
+	glVertex3f(-0.5, 0.5, 0.0);
+	glColor3f(0.0, 0.0, 0.0);
+	glVertex3f(0.5, 0.5, 0.0);
+	glColor3f(1.0, 1.0, 0.0);
+	glVertex3f(0.5, -0.5, 0.0);
+
+	glEnd();
 }
 
 void display()
 {
-  /* draw 1x1 cube about origin */
-  /* replace this code with your height field implementation */
-  /* you may also want to precede it with your 
-rotation/translation/scaling */
-
-  glBegin(GL_POLYGON);
-
-  glColor3f(1.0, 1.0, 1.0);
-  glVertex3f(-0.5, -0.5, 0.0);
-  glColor3f(0.0, 0.0, 1.0);
-  glVertex3f(-0.5, 0.5, 0.0);
-  glColor3f(0.0, 0.0, 0.0);
-  glVertex3f(0.5, 0.5, 0.0);
-  glColor3f(1.0, 1.0, 0.0);
-  glVertex3f(0.5, -0.5, 0.0);
-
-  glEnd();
+	glClear(GL_COLOR_BUFFER_BIT);
+	setupCamera();
+	cube();
+	glutSwapBuffers();
 }
 
 void menufunc(int value)
@@ -218,7 +232,13 @@ int main(int argc, char* argv[])
 	    the code past here will segfault if you don't have a window set up....
 	    replace the exit once you add those calls.
 	*/
-	exit(0);
+	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+	glutInitWindowSize(500, 500);
+	glutInitWindowPosition(100, 100);
+	glutCreateWindow(argv[0]);
+
+	/* do initialization */
+	myinit();
 
 	/* tells glut to use a particular display function to redraw */
 	glutDisplayFunc(display);
@@ -238,9 +258,6 @@ int main(int argc, char* argv[])
 	glutPassiveMotionFunc(mouseidle);
 	/* callback for mouse button changes */
 	glutMouseFunc(mousebutton);
-
-	/* do initialization */
-	myinit();
 
 	glutMainLoop();
 	return 0;
