@@ -33,6 +33,26 @@ float g_vLandScale[3] = {1.0, 1.0, 1.0};
 /* see <your pic directory>/pic.h for type Pic */
 Pic * g_pHeightData;
 
+// Vertices
+GLfloat vertices[9][3] = {
+	{-1.0, -1.0, -1.0}, {1.0, -1.0, -1.0},
+	{1.0, 1.0, -1.0}, {-1.0, 1.0, -1.0}, {-1.0, -1.0, 1.0},
+	{1.0, -1.0, 1.0}, {1.0, 1.0, 1.0}, {-1.0, 1.0, 1.0} };
+
+// Color
+GLfloat colors[8][3] = {
+	{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0},
+	{1.0, 1.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0},
+	{1.0, 0.0, 1.0}, {1.0, 1.0, 1.0}, {0.0, 1.0, 1.0}
+};
+
+// Rotation
+GLfloat theta[3] = { 0.0, 0.0, 0.0 };
+
+GLfloat spinSpeed = 0.01f;
+GLint spinAxis = 02;
+
+
 /* Write a screenshot to the specified filename */
 void saveScreenshot (char *filename)
 {
@@ -64,13 +84,25 @@ void myinit()
 {
   /* setup gl view here */
   glClearColor(0.0, 0.0, 0.0, 0.0);
-
+  //gluPerspective(fovy, aspect, 0.01, 1000.0);
   glShadeModel(GL_SMOOTH);
 }
 
 void setupCamera()
 {
+	glTranslatef(0, 0, 3);
+}
 
+void face(int a, int b, int c, int d)
+{
+	glBegin(GL_POLYGON);
+	glColor3fv(colors[a]);
+	glVertex3fv(vertices[a]);
+	glColor3fv(colors[b]);
+	glVertex3fv(vertices[b]);
+	glColor3fv(colors[c]);
+	glVertex3fv(vertices[c]);
+	glEnd();
 }
 
 void cube()
@@ -79,26 +111,41 @@ void cube()
 	/* replace this code with your height field implementation */
 	/* you may also want to precede it with your
 	rotation/translation/scaling */
-	glBegin(GL_POLYGON);
+	
+	// Rotate
+	glRotatef(theta[0], 1.0, 0.0, 0.0);
+	glRotatef(theta[1], 0.0, 1.0, 0.0);
+	glRotatef(theta[2], 0.0, 0.0, 1.0);
 
-	glColor3f(1.0, 1.0, 1.0);
-	glVertex3f(-0.5, -0.5, 0.0);
-	glColor3f(0.0, 0.0, 1.0);
-	glVertex3f(-0.5, 0.5, 0.0);
-	glColor3f(0.0, 0.0, 0.0);
-	glVertex3f(0.5, 0.5, 0.0);
-	glColor3f(1.0, 1.0, 0.0);
-	glVertex3f(0.5, -0.5, 0.0);
-
-	glEnd();
+	// Color
+	face(0, 3, 2, 1);
+	face(2, 3, 7, 6);
+	face(0, 4, 7, 3);
+	face(1, 2, 6, 5);
+	face(4, 5, 6, 7);
+	face(0, 1, 5, 4);
 }
 
 void display()
 {
-	glClear(GL_COLOR_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glLoadIdentity();
 	setupCamera();
 	cube();
 	glutSwapBuffers();
+}
+
+void reshape(int w, int h)
+{
+	GLfloat aspect = (GLfloat)w / (GLfloat)h;
+	glViewport(0, 0, w, h);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	if (w <= h)
+		glOrtho(-5.0, 5.0, -2.0 / aspect, 2.0 / aspect, -10.0, 10.0);
+	else
+		glOrtho(-2.0 * aspect, 2.0 * aspect, -2.0, 2.0, -10.0, 10.0);
+	glMatrixMode(GL_MODELVIEW);
 }
 
 void menufunc(int value)
@@ -111,10 +158,17 @@ void menufunc(int value)
   }
 }
 
+void spinCube()
+{
+	theta[spinAxis] += spinSpeed;
+	if (theta[spinAxis] > 360.0) theta[spinAxis] -= 360.0;
+	glutPostRedisplay();
+}
+
 void doIdle()
 {
   /* do some stuff... */
-
+	spinCube();
   /* make the screen update */
   glutPostRedisplay();
 }
@@ -232,9 +286,11 @@ int main(int argc, char* argv[])
 	    the code past here will segfault if you don't have a window set up....
 	    replace the exit once you add those calls.
 	*/
-	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
-	glutInitWindowSize(500, 500);
+	glutInitDisplayMode(GLUT_DOUBLE | GLUT_DEPTH | GLUT_RGB);
+	glutIdleFunc(spinCube);
+	glutInitWindowSize(640, 480);
 	glutInitWindowPosition(100, 100);
+	glEnable(GL_DEPTH_TEST);
 	glutCreateWindow(argv[0]);
 
 	/* do initialization */
@@ -242,7 +298,10 @@ int main(int argc, char* argv[])
 
 	/* tells glut to use a particular display function to redraw */
 	glutDisplayFunc(display);
-  
+
+	/* Projects into 3d space */
+	//glutReshapeFunc(reshape);
+
 	/* allow the user to quit using the right mouse button menu */
 	g_iMenuId = glutCreateMenu(menufunc);
 	glutSetMenu(g_iMenuId);
