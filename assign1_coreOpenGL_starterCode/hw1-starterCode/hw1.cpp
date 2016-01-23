@@ -85,7 +85,12 @@ void reshapeFunc(int w, int h)
 {
   glViewport(0, 0, w, h);
 
+  float aspect = (float)w / (float)h;
+
   // setup perspective matrix...
+  //(90, aspect, 0.01, 1000.0);
+
+
 }
 
 void mouseMotionDragFunc(int x, int y)
