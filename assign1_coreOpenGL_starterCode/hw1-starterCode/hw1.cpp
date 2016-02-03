@@ -51,32 +51,33 @@ char windowTitle[512] = "CSCI 420 homework I";
 
 ImageIO * heightmapImage;
 
-// VBO stuff
-OpenGLMatrix* matrix;
-GLfloat theta[3] = { 0.0f, 0.0f, 0.0f };
-GLuint buffer;
-
-// Render via triangle strips.
 float positions[4][3] =
 {
-	{ -1.0f, -1.0f, -1.0f },
-	{ 1.0f, -1.0f, -1.0f },
-	{ -1.0f, 1.0f, -1.0f },
-	{ 1.0f, 1.0f, -1.0f }
+	{-1,-1,-1},
+	{1,-1,-1},
+	{-1,1,-1},
+	{1,1,-1}
 };
 
-float colors[4][3] =
+float colors[4][4] =
 {
-	{ 0.0f, 0.0f, 0.0f },
-	{ 1.0, 0.0f, 0.0f },
-	{ 1.0f, 1.0f, 0.0f },
-	{ 0.0f, 1.0, 0.0f }
+	{1,1,1,1},
+	{1,0,0,1},
+	{0,1,0,1},
+	{0,0,1,1}
 };
 
+GLfloat theta[3] = { 0,0,0 };
 
-//VAO stuff
-GLuint program;
-GLuint h_modelViewMatrix;
+OpenGLMatrix* matrix;
+GLuint buffer;
+
+BasicPipelineProgram* pipelineProgram;
+
+void initVBO();
+void initPipelineProgram();
+void bindProgram();
+void renderQuad();
 
 // write a screenshot to the specified filename
 void saveScreenshot(const char * filename)
@@ -93,44 +94,61 @@ void saveScreenshot(const char * filename)
   delete [] screenshotData;
 }
 
-void drawTerrain()
+void displayFunc()
 {
-	GLint first = 0;
-	GLsizei count = 4;
-	glDrawArrays(GL_TRIANGLE_STRIP, first, count);
+	// render some stuff...
+	glClear(GL_COLOR_BUFFER_BIT |
+		GL_DEPTH_BUFFER_BIT);
+	matrix->LoadIdentity();
+	matrix->LookAt(0, 0, 1, 0, 1, -1, 0, 1, 0);
+	matrix->Rotate(theta[0], 1, 0, 0);
+	matrix->Rotate(theta[1], 0, 1, 0);
+	matrix->Rotate(theta[2], 0, 0, 1);
+	bindProgram();
+	renderQuad();
+	glutSwapBuffers();
 }
 
 void bindProgram()
 {
+	pipelineProgram->Bind(); // TODO: is this suppose to go here?
+	GLuint vao;
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+
 	glBindBuffer(GL_ARRAY_BUFFER, buffer);
 
-	// Position to VAO
-	GLuint loc = glGetAttribLocation(program, "pos");
+	GLuint program = pipelineProgram->GetProgramHandle();
+
+	// Bind position
+	GLuint loc = glGetAttribLocation(program, "position");
 	glEnableVertexAttribArray(loc);
 	const void* offset = 0;
 	glVertexAttribPointer(loc, 3, GL_FLOAT, GL_FALSE, 0, offset);
 
-	// Color to VAO
+	// Bind color
 	GLuint loc2 = glGetAttribLocation(program, "color");
 	glEnableVertexAttribArray(loc2);
-	const void* offset2 = (void*) sizeof(positions);
-	glVertexAttribPointer(loc, 3, GL_FLOAT, GL_FALSE, 0, offset);
+	const void* offset2 = (void*)sizeof(positions);
+	glVertexAttribPointer(loc2, 4, GL_FLOAT, GL_FALSE, 0, offset2);
 
-	// Write projection and modelview to shader.
+	// Write modelview matrix to shader
+	GLint h_modelViewMatrix = 
+		glGetUniformLocation(program, "projectionModelViewMatrix");
+	float m[16]; // column major.
+	matrix->GetProjectionModelViewMatrix(m); // TODO: is this correct?
+
+	// upload m to the GPU
+	GLboolean isRowMajor = GL_FALSE;
+	glUniformMatrix4fv(h_modelViewMatrix, 1, isRowMajor, m);
 }
 
-void displayFunc()
+void renderQuad()
 {
-  // render some stuff...
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	matrix->LoadIdentity();
-	matrix->LookAt(0, 0, 0, 0, 0, -1, 0, 1, 0);
-	matrix->Rotate(theta[0], 1.0, 0.0, 0.0);
-	matrix->Rotate(theta[0], 0.0, 1.0, 0.0);
-	matrix->Rotate(theta[0], 1.0, 0.0, 1.0);
-	bindProgram();
-	drawTerrain();
-	glutSwapBuffers();
+	GLint first = 0;
+	GLsizei count = 4;
+	glDrawArrays(GL_TRIANGLE_STRIP, first, count);
+	glBindVertexArray(0);
 }
 
 void idleFunc()
@@ -145,13 +163,15 @@ void idleFunc()
 
 void reshapeFunc(int w, int h)
 {
-	GLfloat aspect = (GLfloat)w / (GLfloat)h;
-	glViewport(0, 0, w, h);
-	matrix->SetMatrixMode(OpenGLMatrix::Projection);
-	matrix->LoadIdentity();
-	matrix->Ortho(-2.0f, 2.0f, -2.0f / aspect, 2.0f / aspect, 0.0f, 10.0f);
-	matrix->Perspective(90, aspect, 0.01, 1000.0);
-	matrix->SetMatrixMode(OpenGLMatrix::ModelView);
+  glViewport(0, 0, w, h);
+
+  // setup perspective matrix...
+  GLfloat aspect = (GLfloat)w / (GLfloat)h;
+  glViewport(0, 0, w, h);
+  matrix->SetMatrixMode(OpenGLMatrix::Projection);
+  matrix->LoadIdentity();
+  matrix->Perspective(90, aspect, 0.01f, 1000);
+  matrix->SetMatrixMode(OpenGLMatrix::ModelView);
 }
 
 void mouseMotionDragFunc(int x, int y)
@@ -283,30 +303,6 @@ void keyboardFunc(unsigned char key, int x, int y)
   }
 }
 
-void initTerrain(unsigned int size)
-{
-	
-}
-
-void initVBO()
-{
-	// Init the VBO
-	glGenBuffers(1, &buffer);
-	glBindBuffer(GL_ARRAY_BUFFER, buffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(positions), NULL, GL_STATIC_DRAW); // init buffer size to position only.
-
-	// Upload position data.
-	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(positions), positions);
-
-	// Upload color data
-	glBufferSubData(GL_ARRAY_BUFFER, sizeof(positions), sizeof(colors), colors);
-}
-
-void initPipelineProgram()
-{
-	// Waiting on next lecture.
-}
-
 void initScene(int argc, char *argv[])
 {
   // load the image from a jpeg disk file to main memory
@@ -324,9 +320,26 @@ void initScene(int argc, char *argv[])
   matrix = new OpenGLMatrix();
   initVBO();
   initPipelineProgram();
+}
 
-  // Inits the vertices of the terrain based on size of file.
-  initTerrain(heightmapImage->getHeight());
+void initVBO()
+{
+	glGenBuffers(1, &buffer);
+	glBindBuffer(GL_ARRAY_BUFFER, buffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(positions) + sizeof(colors),
+		NULL, GL_STATIC_DRAW); // init buffer's size but dont assign data.
+
+	// upload position data.
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(positions), positions);
+
+	// upload color data
+	glBufferSubData(GL_ARRAY_BUFFER, sizeof(positions), sizeof(colors), colors);
+}
+
+void initPipelineProgram()
+{
+	pipelineProgram = new BasicPipelineProgram();
+	pipelineProgram->Init("../openGLHelper-starterCode");
 }
 
 int main(int argc, char *argv[])

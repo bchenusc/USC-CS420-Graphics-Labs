@@ -15,7 +15,7 @@
    The stages are:
      (A) vertex shader (OpenGL 2.0 and higher),
      (B) fragment shader (OpenGL 2.0 and higher),
-     (C) geometry shader (OpenGL 3.0 and higher),
+     (C) geometry shader (OpenGL 3.2 and higher),
      (D) tessellation control shader (OpenGL 4.0 and higher),
      (E) tessellation evaluation shader (OpenGL 4.0 and higher)
 
