@@ -72,14 +72,14 @@ char windowTitle[512] = "CSCI 420 homework I";
 ImageIO * heightmapImage;
 
 // ############### My Code ############### //
-enum DRAW_STATE {DS_POINT, DS_WIRE, DS_SOLID} ;
+enum DRAW_STATE {DS_POINT = 0, DS_WIRE = 1, DS_SOLID = 2} ;
 DRAW_STATE drawState = DS_SOLID;
 
 OpenGLMatrix* matrix;
 BasicPipelineProgram* pipelineProgram;
 GLuint program;
 
-const float WORLDMAP_SIZE = 255.0f /* Represents one length side. */;
+const float WORLDMAP_SIZE = 100.0f /* Represents one length side. */;
 const float WORLDMAP_MAX_HEIGHT = 5.0f /* Scales map larger or smaller. */;
 const float CAMERA_HEIGHT = 100.0f;
 const float CAMERA_DEPTH = 100.0f;
@@ -191,13 +191,14 @@ void initScene(int argc, char *argv[])
 	heightMapVertexColors.resize(vertices);
 
 	// Populate the vertices
+	const float halfOfWorldSize = WORLDMAP_SIZE / 2.0f;
 	const float offset = WORLDMAP_SIZE / (width - 1); /* Assume width > 1 */
 	for (unsigned i = 0; i < vertices; ++i)
 	{
-		heightMapVertices[i].x = offset * (i % width) - (WORLDMAP_SIZE / 2.0f); /* Assume width > 0 */
+		heightMapVertices[i].x = offset * (i % width) - halfOfWorldSize; /* Assume width > 0 */
 		heightMapVertices[i].z = i > (width - 1) ? 
-									(i / width) * (-offset) + (WORLDMAP_SIZE / 2.0f) /* Draw map from close (+) to far (-) while camera facing -z. */:
-									WORLDMAP_SIZE / 2.0f /* Draw first row at the default of 1.0f. */;
+									(i / width) * (-offset) + halfOfWorldSize: /* Draw map from close (+) to far (-) while camera facing -z. */
+									halfOfWorldSize /* Draw first row at the default of 1.0f. */;
 		heightMapVertices[i].y = heightmapImage->getPixel(i % width, i / width, 0) / WORLDMAP_MAX_HEIGHT; /* TODO: populate with correct height. */
 	}
 
@@ -325,10 +326,25 @@ void bindAndDrawVertexToProgram()
 	glVertexAttribPointer(attrib_color, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
 	// Attribute 3: Index
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
 
 	// Draw
-	glDrawElements(GL_TRIANGLE_STRIP, heightMapIndices.size(), GL_UNSIGNED_INT, (void*)0);
+	switch (drawState)
+	{
+	case DRAW_STATE::DS_POINT:
+		glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+		glDrawArrays(GL_POINTS, 0, heightMapVertices.size());
+		break;
+
+	case DRAW_STATE::DS_WIRE:
+		glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+		glDrawArrays(GL_LINES, 0, heightMapVertices.size());
+		break;
+
+	case DRAW_STATE::DS_SOLID:
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+		glDrawElements(GL_TRIANGLE_STRIP, heightMapIndices.size(), GL_UNSIGNED_INT, (void*)0);
+		break;
+	}
 	glBindVertexArray(0);
 }
 
@@ -351,7 +367,7 @@ void reshapeFunc(int w, int h)
   glViewport(0, 0, w, h);
   matrix->SetMatrixMode(OpenGLMatrix::Projection);
   matrix->LoadIdentity();
-  matrix->Perspective(90, aspect, 0.01f, 1000);
+  matrix->Perspective(60, aspect, 0.01f, 1000);
   matrix->SetMatrixMode(OpenGLMatrix::ModelView);
 }
 
@@ -475,17 +491,20 @@ void keyboardFunc(unsigned char key, int x, int y)
 
 	case '1':
 		// Draw Points
-
+		drawState = DRAW_STATE::DS_POINT;
+		glutPostRedisplay();
 		break;
 
 	case '2':
 		// Draw wires.
-
+		drawState = DRAW_STATE::DS_WIRE;
+		glutPostRedisplay();
 		break;
 
 	case '3':
 		// Draw Mesh
-
+		drawState = DRAW_STATE::DS_SOLID;
+		glutPostRedisplay();
 		break;
 
 	case '-':
