@@ -77,8 +77,10 @@ OpenGLMatrix* matrix;
 BasicPipelineProgram* pipelineProgram;
 GLuint program;
 
-const float WORLDMAP_SIZE = 2.0f /* Represents one length side. */;
-const float WORLDMAP_MAX_HEIGHT = 255.0f /* Scales map larger or smaller. */;
+const float WORLDMAP_SIZE = 255.0f /* Represents one length side. */;
+const float WORLDMAP_MAX_HEIGHT = 100.0f /* Scales map larger or smaller. */;
+const float CAMERA_HEIGHT = 100.0f;
+const float CAMERA_DEPTH = 100.0f;
 
 GLuint vertexBuffer;
 GLuint colorBuffer;
@@ -88,6 +90,8 @@ GLuint vertexArray;
 std::vector<glm::vec3> heightMapVertices;
 std::vector<glm::vec4> heightMapVertexColors;
 std::vector<unsigned int> heightMapIndices;
+
+bool toggleWireframe;
 
 int main(int argc, char *argv[])
 {
@@ -166,7 +170,7 @@ void initScene(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
 	glEnable(GL_DEPTH_TEST);
 	matrix = new OpenGLMatrix();
 
@@ -187,7 +191,7 @@ void initScene(int argc, char *argv[])
 	for (unsigned i = 0; i < vertices; ++i)
 	{
 		heightMapVertices[i].x = offset * (i % width) - (WORLDMAP_SIZE / 2.0f); /* Assume width > 0 */
-		heightMapVertices[i].y = 0;//heightmapImage->getPixel(i / width, i % width , 1) / WORLDMAP_MAX_HEIGHT; /* TODO: populate with correct height. */
+		heightMapVertices[i].y = heightmapImage->getPixel(i % width, i / width, 1) / WORLDMAP_MAX_HEIGHT; /* TODO: populate with correct height. */
 		heightMapVertices[i].z = i > (width - 1) ?
 									(i / width) * (-offset) + (WORLDMAP_SIZE / 2.0f) :
 									1.0f;
@@ -196,7 +200,8 @@ void initScene(int argc, char *argv[])
 	// Populate the color of the vertices.
 	for (unsigned i = 0; i < vertices; ++i)
 	{
-		heightMapVertexColors[i] = glm::vec4(0, 0, heightmapImage->getPixel(i / width, i % width, 1), 1);
+		char color = heightmapImage->getPixel(i % width, i / width, 1);
+		heightMapVertexColors[i] = glm::vec4(color, color, color, 1);
 	}
 
 	// Populate the index buffer
@@ -276,7 +281,7 @@ void displayFunc()
 	glClear(GL_COLOR_BUFFER_BIT |
 		GL_DEPTH_BUFFER_BIT);
 	matrix->LoadIdentity();
-	matrix->LookAt(0, 2, 2, 0, 0, 0, 0, 1, 0);
+	matrix->LookAt(0, CAMERA_HEIGHT, CAMERA_DEPTH, 0, 0, 0, 0, 1, 0);
 	matrix->Rotate(theta[0], 1, 0, 0);
 	matrix->Rotate(theta[1], 0, 1, 0);
 	matrix->Rotate(theta[2], 0, 0, 1);
@@ -466,6 +471,7 @@ void keyboardFunc(unsigned char key, int x, int y)
 
 	case ' ':
 		cout << "You pressed the spacebar." << endl;
+		toggleWireframe != toggleWireframe;
 		break;
 
 	case 'x':
