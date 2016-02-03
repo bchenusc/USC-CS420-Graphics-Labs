@@ -32,6 +32,34 @@
 
 using namespace std;
 
+struct Vector3
+{
+	float x = 0, y = 0, z = 0;
+	Vector3(float mx, float my, float mz) { x = mx; y = my; z = mz; }
+};
+
+struct Vector4
+{
+	float x = 0, y = 0, z = 0, w = 0;
+	Vector4(float mx, float my, float mz, float mw) { x = mx; y = my; z = mz;  w = mw; }
+};
+
+void initVBO();
+void initPipelineProgram();
+void bindProgram();
+void renderQuad();
+
+void displayFunc();
+void idleFunc();
+void initScene(int argc, char* argv[]);
+void keyboardFunc(unsigned char key, int x, int y);
+void mouseButtonFunc(int button, int state, int x, int y);
+void mouseMotionFunc(int x, int y);
+void mouseMotionDragFunc(int x, int y);
+void mouseMotionDragFunc(int button, int state, int x, int y);
+void reshapeFunc(int w, int h);
+void saveScreenshot(const char* filename);
+
 int mousePos[2]; // x,y coordinate of the mouse position
 
 int leftMouseButton = 0; // 1 if pressed, 0 if not 
@@ -52,23 +80,11 @@ char windowTitle[512] = "CSCI 420 homework I";
 
 ImageIO * heightmapImage;
 
-struct Vector3
-{
-	float x = 0, y = 0, z = 0;
-	Vector3(int mx, int my, int mz) { x = mx; y = my; z = mz; }
-};
-
-struct Vector4
-{
-	float x = 0, y = 0, z = 0, w = 0;
-	Vector4(int mx, int my, int mz, int mw) { x = mx; y = my; z = mz;  w = mw; }
-};
-
 unsigned vertexCount = 0;
 // std::vector<Vector3> positions;
 // std::vector<Vector4> colors;
 
-float positions[6][3] =
+float vertexPositions[6][3] =
 {
 	{ -1, 0, -1 },
 	{ -1, 0, 1 },
@@ -95,10 +111,68 @@ GLuint buffer;
 
 BasicPipelineProgram* pipelineProgram;
 
-void initVBO();
-void initPipelineProgram();
-void bindProgram();
-void renderQuad();
+int main(int argc, char *argv[])
+{
+	if (argc != 2)
+	{
+		cout << "The arguments are incorrect." << endl;
+		cout << "usage: ./hw1 <heightmap file>" << endl;
+		exit(EXIT_FAILURE);
+	}
+
+	cout << "Initializing GLUT..." << endl;
+	glutInit(&argc, argv);
+
+	cout << "Initializing OpenGL..." << endl;
+
+#ifdef __APPLE__
+	glutInitDisplayMode(GLUT_3_2_CORE_PROFILE | GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH | GLUT_STENCIL);
+#else
+	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH | GLUT_STENCIL);
+#endif
+
+	glutInitWindowSize(windowWidth, windowHeight);
+	glutInitWindowPosition(0, 0);
+	glutCreateWindow(windowTitle);
+
+	cout << "OpenGL Version: " << glGetString(GL_VERSION) << endl;
+	cout << "OpenGL Renderer: " << glGetString(GL_RENDERER) << endl;
+	cout << "Shading Language Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << endl;
+
+	// tells glut to use a particular display function to redraw 
+	glutDisplayFunc(displayFunc);
+	// perform animation inside idleFunc
+	glutIdleFunc(idleFunc);
+	// callback for mouse drags
+	glutMotionFunc(mouseMotionDragFunc);
+	// callback for idle mouse movement
+	glutPassiveMotionFunc(mouseMotionFunc);
+	// callback for mouse button changes
+	glutMouseFunc(mouseButtonFunc);
+	// callback for resizing the window
+	glutReshapeFunc(reshapeFunc);
+	// callback for pressing the keys on the keyboard
+	glutKeyboardFunc(keyboardFunc);
+
+	// init glew
+#ifdef __APPLE__
+	// nothing is needed on Apple
+#else
+	// Windows, Linux
+	GLint result = glewInit();
+	if (result != GLEW_OK)
+	{
+		cout << "error: " << glewGetErrorString(result) << endl;
+		exit(EXIT_FAILURE);
+	}
+#endif
+
+	// do initialization
+	initScene(argc, argv);
+
+	// sink forever into the glut loop
+	glutMainLoop();
+}
 
 // write a screenshot to the specified filename
 void saveScreenshot(const char * filename)
@@ -132,7 +206,7 @@ void displayFunc()
 
 void bindProgram()
 {
-	pipelineProgram->Bind(); // TODO: is this suppose to go here?
+	pipelineProgram->Bind();
 	GLuint vao;
 	glGenVertexArrays(1, &vao);
 	glBindVertexArray(vao);
@@ -150,8 +224,10 @@ void bindProgram()
 	// Bind color
 	GLuint loc2 = glGetAttribLocation(program, "color");
 	glEnableVertexAttribArray(loc2);
-	const void* offset2 = (void*)sizeof(positions);
+	const void* offset2 = (void*)sizeof(vertexPositions);
 	glVertexAttribPointer(loc2, 4, GL_FLOAT, GL_FALSE, 0, offset2);
+
+
 
 	// Write modelview matrix to shader
 	GLint h_modelViewMatrix = 
@@ -350,83 +426,20 @@ void initVBO()
 {
 	glGenBuffers(1, &buffer);
 	glBindBuffer(GL_ARRAY_BUFFER, buffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(positions) + sizeof(colors),
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertexPositions) + sizeof(colors),
 		NULL, GL_STATIC_DRAW); // init buffer's size but dont assign data.
 
 	// upload position data.
-	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(positions), positions);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertexPositions), vertexPositions);
 
 	// upload color data
-	glBufferSubData(GL_ARRAY_BUFFER, sizeof(positions), sizeof(colors), colors);
+	glBufferSubData(GL_ARRAY_BUFFER, sizeof(vertexPositions), sizeof(colors), colors);
 }
 
 void initPipelineProgram()
 {
 	pipelineProgram = new BasicPipelineProgram();
 	pipelineProgram->Init("../openGLHelper-starterCode");
-}
-
-int main(int argc, char *argv[])
-{
-  if (argc != 2)
-  {
-    cout << "The arguments are incorrect." << endl;
-    cout << "usage: ./hw1 <heightmap file>" << endl;
-    exit(EXIT_FAILURE);
-  }
-
-  cout << "Initializing GLUT..." << endl;
-  glutInit(&argc,argv);
-
-  cout << "Initializing OpenGL..." << endl;
-
-  #ifdef __APPLE__
-    glutInitDisplayMode(GLUT_3_2_CORE_PROFILE | GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH | GLUT_STENCIL);
-  #else
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH | GLUT_STENCIL);
-  #endif
-
-  glutInitWindowSize(windowWidth, windowHeight);
-  glutInitWindowPosition(0, 0);  
-  glutCreateWindow(windowTitle);
-
-  cout << "OpenGL Version: " << glGetString(GL_VERSION) << endl;
-  cout << "OpenGL Renderer: " << glGetString(GL_RENDERER) << endl;
-  cout << "Shading Language Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << endl;
-
-  // tells glut to use a particular display function to redraw 
-  glutDisplayFunc(displayFunc);
-  // perform animation inside idleFunc
-  glutIdleFunc(idleFunc);
-  // callback for mouse drags
-  glutMotionFunc(mouseMotionDragFunc);
-  // callback for idle mouse movement
-  glutPassiveMotionFunc(mouseMotionFunc);
-  // callback for mouse button changes
-  glutMouseFunc(mouseButtonFunc);
-  // callback for resizing the window
-  glutReshapeFunc(reshapeFunc);
-  // callback for pressing the keys on the keyboard
-  glutKeyboardFunc(keyboardFunc);
-
-  // init glew
-  #ifdef __APPLE__
-    // nothing is needed on Apple
-  #else
-    // Windows, Linux
-    GLint result = glewInit();
-    if (result != GLEW_OK)
-    {
-      cout << "error: " << glewGetErrorString(result) << endl;
-      exit(EXIT_FAILURE);
-    }
-  #endif
-
-  // do initialization
-  initScene(argc, argv);
-
-  // sink forever into the glut loop
-  glutMainLoop();
 }
 
 
