@@ -32,22 +32,12 @@
 
 using namespace std;
 
-struct Vector3
-{
-	float x = 0, y = 0, z = 0;
-	Vector3(float mx, float my, float mz) { x = mx; y = my; z = mz; }
-};
-
-struct Vector4
-{
-	float x = 0, y = 0, z = 0, w = 0;
-	Vector4(float mx, float my, float mz, float mw) { x = mx; y = my; z = mz;  w = mw; }
-};
-
-void initVBO();
+void initArrays();
+void initBuffers();
 void initPipelineProgram();
 void bindProgram();
-void renderQuad();
+void bindProjectionMatrixToProgram();
+void bindAndDrawVertexToProgram();
 
 void displayFunc();
 void idleFunc();
@@ -79,37 +69,25 @@ int windowHeight = 720;
 char windowTitle[512] = "CSCI 420 homework I";
 
 ImageIO * heightmapImage;
-
-unsigned vertexCount = 0;
-// std::vector<Vector3> positions;
-// std::vector<Vector4> colors;
-
-float vertexPositions[6][3] =
-{
-	{ -1, 0, -1 },
-	{ -1, 0, 1 },
-	{ 1, 0, -1 },
-	{ 1, 0, 1 },
-	{ 2, 0, -1 },
-	{ 2, 0, 1}
-};
-
-float colors[6][4] =
-{
-	{ 1,0,0,1 },
-	{ 0,1,0,1 },
-	{ 0,0,1,1 },
-	{ 1,0,1,1 },
-	{ 1,1,0,1 },
-	{ 0,1,1,1 }
-};
-
 GLfloat theta[3] = { 0,0,0 };
 
-OpenGLMatrix* matrix;
-GLuint buffer;
+// ############### My Code ################
 
+OpenGLMatrix* matrix;
 BasicPipelineProgram* pipelineProgram;
+GLuint program;
+
+const float WORLDMAP_SIZE = 2.0f /* Represents one length side. */;
+const float WORLDMAP_MAX_HEIGHT = 255.0f /* Scales map larger or smaller. */;
+
+GLuint vertexBuffer;
+GLuint colorBuffer;
+GLuint indexBuffer;
+GLuint vertexArray;
+
+std::vector<glm::vec3> heightMapVertices;
+std::vector<glm::vec4> heightMapVertexColors;
+std::vector<unsigned int> heightMapIndices;
 
 int main(int argc, char *argv[])
 {
@@ -174,19 +152,122 @@ int main(int argc, char *argv[])
 	glutMainLoop();
 }
 
-// write a screenshot to the specified filename
-void saveScreenshot(const char * filename)
+// 1. Loads the image.
+// 2. Initializes the vertex count.
+// 3. Creates the vertex buffer.
+// 4. Initalizes the pipeline.
+void initScene(int argc, char *argv[])
 {
-  unsigned char * screenshotData = new unsigned char[windowWidth * windowHeight * 3];
-  glReadPixels(0, 0, windowWidth, windowHeight, GL_RGB, GL_UNSIGNED_BYTE, screenshotData);
+	// load the image from a jpeg disk file to main memory
+	heightmapImage = new ImageIO();
+	if (heightmapImage->loadJPEG(argv[1]) != ImageIO::OK)
+	{
+		cout << "Error reading image " << argv[1] << "." << endl;
+		exit(EXIT_FAILURE);
+	}
 
-  ImageIO screenshotImg(windowWidth, windowHeight, 3, screenshotData);
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	glEnable(GL_DEPTH_TEST);
+	matrix = new OpenGLMatrix();
 
-  if (screenshotImg.save(filename, ImageIO::FORMAT_JPEG) == ImageIO::OK)
-    cout << "File " << filename << " saved successfully." << endl;
-  else cout << "Failed to save file " << filename << '.' << endl;
+	// Cleanup
+	heightMapVertices.clear();
+	heightMapVertexColors.clear();
+	heightMapIndices.clear();
 
-  delete [] screenshotData;
+	// Initialize vertices data:
+	unsigned int height = heightmapImage->getHeight();
+	unsigned int width = heightmapImage->getWidth();
+	unsigned int vertices = width * height;
+	heightMapVertices.resize(vertices);
+	heightMapVertexColors.resize(vertices);
+
+	// Populate the vertices
+	const float offset = WORLDMAP_SIZE / (width - 1); /* Assume width > 1 */
+	for (unsigned i = 0; i < vertices; ++i)
+	{
+		heightMapVertices[i].x = offset * (i % width) - (WORLDMAP_SIZE / 2.0f); /* Assume width > 0 */
+		heightMapVertices[i].y = 0;//heightmapImage->getPixel(i / width, i % width , 1) / WORLDMAP_MAX_HEIGHT; /* TODO: populate with correct height. */
+		heightMapVertices[i].z = i > (width - 1) ?
+									(i / width) * (-offset) + (WORLDMAP_SIZE / 2.0f) :
+									1.0f;
+	}
+
+	// Populate the color of the vertices.
+	for (unsigned i = 0; i < vertices; ++i)
+	{
+		heightMapVertexColors[i] = glm::vec4(0, 0, heightmapImage->getPixel(i / width, i % width, 1), 1);
+	}
+
+	// Populate the index buffer
+	const unsigned numStrips = height - 1;
+	const unsigned numDegens = 2 * (numStrips - 1);
+	const unsigned verticesPerStrip = 2 * width;
+	heightMapIndices.resize((verticesPerStrip * numStrips) + numDegens);
+
+	unsigned int indexOffset = 0;
+	// Loop over the number of strips from top to bottom.
+	for (unsigned r = 0; r < numStrips; ++r)
+	{
+		// Check if we are writing a degenerate.
+		if (r > 0)
+		{
+			heightMapIndices[indexOffset++] = r * height;
+		}
+
+		// Writing the strip
+		for (unsigned c = 0; c < width; ++c)
+		{
+			heightMapIndices[indexOffset++] = r * height + c;
+			heightMapIndices[indexOffset++] = (r + 1) * height + c;
+		}
+
+		// Last degenerate must repeat last vertex.
+		if (r < height - 2)
+		{
+			heightMapIndices[indexOffset++] = (r + 1) * height + width - 1;
+		}
+	}
+
+	// Final setup
+	initArrays();
+	initBuffers();
+	initPipelineProgram();
+}
+
+void initArrays()
+{
+	/*
+		GLuint vertexArray;
+	*/
+	glGenVertexArrays(1, &vertexArray);
+	glBindVertexArray(vertexArray);
+}
+
+void initBuffers()
+{
+	/*
+		GLuint vertexBuffer;
+		GLuint colorBuffer;
+		GLuint indexBuffer;
+	*/
+	glGenBuffers(1, &vertexBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+	glBufferData(GL_ARRAY_BUFFER, heightMapVertices.size() * sizeof(glm::vec3), &heightMapVertices[0], GL_STATIC_DRAW);
+
+	glGenBuffers(1, &colorBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, colorBuffer);
+	glBufferData(GL_ARRAY_BUFFER, heightMapVertexColors.size() * sizeof(glm::vec4), &heightMapVertexColors[0], GL_STATIC_DRAW);
+
+	glGenBuffers(1, &indexBuffer);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, heightMapIndices.size() * sizeof(unsigned int), &heightMapIndices[0], GL_STATIC_DRAW);
+}
+
+void initPipelineProgram()
+{
+	pipelineProgram = new BasicPipelineProgram();
+	pipelineProgram->Init("../openGLHelper-starterCode");
 }
 
 void displayFunc()
@@ -200,51 +281,45 @@ void displayFunc()
 	matrix->Rotate(theta[1], 0, 1, 0);
 	matrix->Rotate(theta[2], 0, 0, 1);
 	bindProgram();
-	renderQuad();
 	glutSwapBuffers();
 }
 
 void bindProgram()
 {
 	pipelineProgram->Bind();
-	GLuint vao;
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-
-	glBindBuffer(GL_ARRAY_BUFFER, buffer);
-
-	GLuint program = pipelineProgram->GetProgramHandle();
-
-	// Bind position
-	GLuint loc = glGetAttribLocation(program, "position");
-	glEnableVertexAttribArray(loc);
-	const void* offset = 0;
-	glVertexAttribPointer(loc, 3, GL_FLOAT, GL_FALSE, 0, offset);
-
-	// Bind color
-	GLuint loc2 = glGetAttribLocation(program, "color");
-	glEnableVertexAttribArray(loc2);
-	const void* offset2 = (void*)sizeof(vertexPositions);
-	glVertexAttribPointer(loc2, 4, GL_FLOAT, GL_FALSE, 0, offset2);
-
-
-
-	// Write modelview matrix to shader
-	GLint h_modelViewMatrix = 
-		glGetUniformLocation(program, "projectionModelViewMatrix");
-	float m[16]; // column major.
-	matrix->GetProjectionModelViewMatrix(m);
-
-	// upload m to the GPU
-	GLboolean isRowMajor = GL_FALSE;
-	glUniformMatrix4fv(h_modelViewMatrix, 1, isRowMajor, m);
+	program = pipelineProgram->GetProgramHandle();
+	bindProjectionMatrixToProgram();
+	bindAndDrawVertexToProgram();
 }
 
-void renderQuad()
+void bindProjectionMatrixToProgram()
 {
-	GLint first = 0;
-	GLsizei count = 6;
-	glDrawArrays(GL_TRIANGLE_STRIP, first, count);
+	// Write modelview matrix to shader
+	GLint h_modelViewMatrix = glGetUniformLocation(program, "projectionModelViewMatrix");
+	float m[16]; // column major.
+	matrix->GetProjectionModelViewMatrix(m);
+	glUniformMatrix4fv(h_modelViewMatrix, 1, GL_FALSE, m);
+}
+
+void bindAndDrawVertexToProgram()
+{
+	// Attribute 1: Position
+	GLuint attrib_pos = glGetAttribLocation(program, "position");
+	glEnableVertexAttribArray(attrib_pos);
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+	glVertexAttribPointer(attrib_pos, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+
+	// Attribute 2: Color
+	GLuint attrib_color = glGetAttribLocation(program, "color");
+	glEnableVertexAttribArray(attrib_color);
+	glBindBuffer(GL_ARRAY_BUFFER, colorBuffer);
+	glVertexAttribPointer(attrib_color, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
+
+	// Attribute 3: Index
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+
+	// Draw
+	glDrawElements(GL_TRIANGLE_STRIP, heightMapIndices.size(), GL_UNSIGNED_INT, (void*)0);
 	glBindVertexArray(0);
 }
 
@@ -383,63 +458,36 @@ void mouseButtonFunc(int button, int state, int x, int y)
 
 void keyboardFunc(unsigned char key, int x, int y)
 {
-  switch (key)
-  {
-    case 27: // ESC key
-      exit(0); // exit the program
-    break;
+	switch (key)
+	{
+	case 27: // ESC key
+		exit(0); // exit the program
+		break;
 
-    case ' ':
-      cout << "You pressed the spacebar." << endl;
-    break;
+	case ' ':
+		cout << "You pressed the spacebar." << endl;
+		break;
 
-    case 'x':
-      // take a screenshot
-      saveScreenshot("screenshot.jpg");
-    break;
-  }
+	case 'x':
+		// take a screenshot
+		saveScreenshot("screenshot.jpg");
+		break;
+	}
 }
 
-void initScene(int argc, char *argv[])
+// write a screenshot to the specified filename
+void saveScreenshot(const char * filename)
 {
-  // load the image from a jpeg disk file to main memory
-  heightmapImage = new ImageIO();
-  if (heightmapImage->loadJPEG(argv[1]) != ImageIO::OK)
-  {
-    cout << "Error reading image " << argv[1] << "." << endl;
-    exit(EXIT_FAILURE);
-  }
+	unsigned char * screenshotData = new unsigned char[windowWidth * windowHeight * 3];
+	glReadPixels(0, 0, windowWidth, windowHeight, GL_RGB, GL_UNSIGNED_BYTE, screenshotData);
 
-  glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-  // Initialize number of vertices
-  vertexCount = heightmapImage->getHeight() * heightmapImage->getWidth();
-  
+	ImageIO screenshotImg(windowWidth, windowHeight, 3, screenshotData);
 
-  // do additional initialization here...
-  glEnable(GL_DEPTH_TEST);
-  matrix = new OpenGLMatrix();
-  initVBO();
-  initPipelineProgram();
-}
+	if (screenshotImg.save(filename, ImageIO::FORMAT_JPEG) == ImageIO::OK)
+		cout << "File " << filename << " saved successfully." << endl;
+	else cout << "Failed to save file " << filename << '.' << endl;
 
-void initVBO()
-{
-	glGenBuffers(1, &buffer);
-	glBindBuffer(GL_ARRAY_BUFFER, buffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertexPositions) + sizeof(colors),
-		NULL, GL_STATIC_DRAW); // init buffer's size but dont assign data.
-
-	// upload position data.
-	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertexPositions), vertexPositions);
-
-	// upload color data
-	glBufferSubData(GL_ARRAY_BUFFER, sizeof(vertexPositions), sizeof(colors), colors);
-}
-
-void initPipelineProgram()
-{
-	pipelineProgram = new BasicPipelineProgram();
-	pipelineProgram->Init("../openGLHelper-starterCode");
+	delete[] screenshotData;
 }
 
 
