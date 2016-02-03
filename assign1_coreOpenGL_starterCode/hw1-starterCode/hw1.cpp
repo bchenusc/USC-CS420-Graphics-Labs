@@ -32,6 +32,7 @@
 
 using namespace std;
 
+void initHandlers();
 void initArrays();
 void initBuffers();
 void initPipelineProgram();
@@ -69,16 +70,17 @@ int windowHeight = 720;
 char windowTitle[512] = "CSCI 420 homework I";
 
 ImageIO * heightmapImage;
-GLfloat theta[3] = { 0,0,0 };
 
-// ############### My Code ################
+// ############### My Code ############### //
+enum DRAW_STATE {DS_POINT, DS_WIRE, DS_SOLID} ;
+DRAW_STATE drawState = DS_SOLID;
 
 OpenGLMatrix* matrix;
 BasicPipelineProgram* pipelineProgram;
 GLuint program;
 
 const float WORLDMAP_SIZE = 255.0f /* Represents one length side. */;
-const float WORLDMAP_MAX_HEIGHT = 100.0f /* Scales map larger or smaller. */;
+const float WORLDMAP_MAX_HEIGHT = 5.0f /* Scales map larger or smaller. */;
 const float CAMERA_HEIGHT = 100.0f;
 const float CAMERA_DEPTH = 100.0f;
 
@@ -90,8 +92,6 @@ GLuint vertexArray;
 std::vector<glm::vec3> heightMapVertices;
 std::vector<glm::vec4> heightMapVertexColors;
 std::vector<unsigned int> heightMapIndices;
-
-bool toggleWireframe;
 
 int main(int argc, char *argv[])
 {
@@ -106,12 +106,11 @@ int main(int argc, char *argv[])
 	glutInit(&argc, argv);
 
 	cout << "Initializing OpenGL..." << endl;
-
-#ifdef __APPLE__
+	#ifdef __APPLE__
 	glutInitDisplayMode(GLUT_3_2_CORE_PROFILE | GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH | GLUT_STENCIL);
-#else
+	#else
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH | GLUT_STENCIL);
-#endif
+	#endif
 
 	glutInitWindowSize(windowWidth, windowHeight);
 	glutInitWindowPosition(0, 0);
@@ -121,6 +120,30 @@ int main(int argc, char *argv[])
 	cout << "OpenGL Renderer: " << glGetString(GL_RENDERER) << endl;
 	cout << "Shading Language Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << endl;
 
+	initHandlers();
+
+	// init glew
+	#ifdef __APPLE__
+	// nothing is needed on Apple
+	#else
+	// Windows, Linux
+	GLint result = glewInit();
+	if (result != GLEW_OK)
+	{
+		cout << "error: " << glewGetErrorString(result) << endl;
+		exit(EXIT_FAILURE);
+	}
+	#endif
+
+	// do initialization
+	initScene(argc, argv);
+
+	// sink forever into the glut loop
+	glutMainLoop();
+}
+
+void initHandlers()
+{
 	// tells glut to use a particular display function to redraw 
 	glutDisplayFunc(displayFunc);
 	// perform animation inside idleFunc
@@ -135,25 +158,6 @@ int main(int argc, char *argv[])
 	glutReshapeFunc(reshapeFunc);
 	// callback for pressing the keys on the keyboard
 	glutKeyboardFunc(keyboardFunc);
-
-	// init glew
-#ifdef __APPLE__
-	// nothing is needed on Apple
-#else
-	// Windows, Linux
-	GLint result = glewInit();
-	if (result != GLEW_OK)
-	{
-		cout << "error: " << glewGetErrorString(result) << endl;
-		exit(EXIT_FAILURE);
-	}
-#endif
-
-	// do initialization
-	initScene(argc, argv);
-
-	// sink forever into the glut loop
-	glutMainLoop();
 }
 
 // 1. Loads the image.
@@ -191,17 +195,17 @@ void initScene(int argc, char *argv[])
 	for (unsigned i = 0; i < vertices; ++i)
 	{
 		heightMapVertices[i].x = offset * (i % width) - (WORLDMAP_SIZE / 2.0f); /* Assume width > 0 */
-		heightMapVertices[i].y = heightmapImage->getPixel(i % width, i / width, 1) / WORLDMAP_MAX_HEIGHT; /* TODO: populate with correct height. */
-		heightMapVertices[i].z = i > (width - 1) ?
-									(i / width) * (-offset) + (WORLDMAP_SIZE / 2.0f) :
-									1.0f;
+		heightMapVertices[i].z = i > (width - 1) ? 
+									(i / width) * (-offset) + (WORLDMAP_SIZE / 2.0f) /* Draw map from close (+) to far (-) while camera facing -z. */:
+									WORLDMAP_SIZE / 2.0f /* Draw first row at the default of 1.0f. */;
+		heightMapVertices[i].y = heightmapImage->getPixel(i % width, i / width, 0) / WORLDMAP_MAX_HEIGHT; /* TODO: populate with correct height. */
 	}
 
 	// Populate the color of the vertices.
 	for (unsigned i = 0; i < vertices; ++i)
 	{
-		char color = heightmapImage->getPixel(i % width, i / width, 1);
-		heightMapVertexColors[i] = glm::vec4(color, color, color, 1);
+		unsigned char color = heightmapImage->getPixel(i % width, i / width, 0);
+		heightMapVertexColors[i] = glm::vec4(color/300.0f, color/256.0f, color/255.0f, 1);
 	}
 
 	// Populate the index buffer
@@ -252,9 +256,9 @@ void initArrays()
 void initBuffers()
 {
 	/*
-		GLuint vertexBuffer;
-		GLuint colorBuffer;
-		GLuint indexBuffer;
+		GLuint vertexBuffer (vec3);
+		GLuint colorBuffer (vec4);
+		GLuint indexBuffer (uint);
 	*/
 	glGenBuffers(1, &vertexBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
@@ -281,10 +285,10 @@ void displayFunc()
 	glClear(GL_COLOR_BUFFER_BIT |
 		GL_DEPTH_BUFFER_BIT);
 	matrix->LoadIdentity();
-	matrix->LookAt(0, CAMERA_HEIGHT, CAMERA_DEPTH, 0, 0, 0, 0, 1, 0);
-	matrix->Rotate(theta[0], 1, 0, 0);
-	matrix->Rotate(theta[1], 0, 1, 0);
-	matrix->Rotate(theta[2], 0, 0, 1);
+	matrix->LookAt(0, CAMERA_HEIGHT + landTranslate[1], CAMERA_DEPTH + landScale[2], 0, 0, 0, 0, 1, 0);
+	matrix->Rotate(landRotate[0], 1, 0, 0);
+	matrix->Rotate(landRotate[1], 0, 1, 0);
+	matrix->Rotate(landRotate[2], 0, 0, 1);
 	bindProgram();
 	glutSwapBuffers();
 }
@@ -469,9 +473,28 @@ void keyboardFunc(unsigned char key, int x, int y)
 		exit(0); // exit the program
 		break;
 
+	case '1':
+		// Draw Points
+
+		break;
+
+	case '2':
+		// Draw wires.
+
+		break;
+
+	case '3':
+		// Draw Mesh
+
+		break;
+
+	case '-':
+		// Zoom in 
+		
+		break;
+
 	case ' ':
 		cout << "You pressed the spacebar." << endl;
-		toggleWireframe != toggleWireframe;
 		break;
 
 	case 'x':
