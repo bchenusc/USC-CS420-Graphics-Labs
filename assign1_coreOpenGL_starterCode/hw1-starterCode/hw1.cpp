@@ -14,6 +14,7 @@
 #include "imageIO.h"
 #include "openGLMatrix.h"
 #include "basicPipelineProgram.h"
+#include <vector>
 
 #ifdef WIN32
   #ifdef _DEBUG
@@ -26,7 +27,7 @@
 #ifdef WIN32
   char shaderBasePath[1024] = SHADER_BASE_PATH;
 #else
-  char shaderBasePath[96] = "../openGLHelper";
+  char shaderBasePath[1024] = "../openGLHelper";
 #endif
 
 using namespace std;
@@ -51,20 +52,40 @@ char windowTitle[512] = "CSCI 420 homework I";
 
 ImageIO * heightmapImage;
 
-float positions[4][3] =
+struct Vector3
 {
-	{-1,-1,-1},
-	{1,-1,-1},
-	{-1,1,-1},
-	{1,1,-1}
+	float x = 0, y = 0, z = 0;
+	Vector3(int mx, int my, int mz) { x = mx; y = my; z = mz; }
 };
 
-float colors[4][4] =
+struct Vector4
 {
-	{1,1,1,1},
-	{1,0,0,1},
-	{0,1,0,1},
-	{0,0,1,1}
+	float x = 0, y = 0, z = 0, w = 0;
+	Vector4(int mx, int my, int mz, int mw) { x = mx; y = my; z = mz;  w = mw; }
+};
+
+unsigned vertexCount = 0;
+// std::vector<Vector3> positions;
+// std::vector<Vector4> colors;
+
+float positions[6][3] =
+{
+	{ -1, 0, -1 },
+	{ -1, 0, 1 },
+	{ 1, 0, -1 },
+	{ 1, 0, 1 },
+	{ 2, 0, -1 },
+	{ 2, 0, 1}
+};
+
+float colors[6][4] =
+{
+	{ 1,0,0,1 },
+	{ 0,1,0,1 },
+	{ 0,0,1,1 },
+	{ 1,0,1,1 },
+	{ 1,1,0,1 },
+	{ 0,1,1,1 }
 };
 
 GLfloat theta[3] = { 0,0,0 };
@@ -100,7 +121,7 @@ void displayFunc()
 	glClear(GL_COLOR_BUFFER_BIT |
 		GL_DEPTH_BUFFER_BIT);
 	matrix->LoadIdentity();
-	matrix->LookAt(0, 0, 1, 0, 1, -1, 0, 1, 0);
+	matrix->LookAt(0, 2, 2, 0, 0, 0, 0, 1, 0);
 	matrix->Rotate(theta[0], 1, 0, 0);
 	matrix->Rotate(theta[1], 0, 1, 0);
 	matrix->Rotate(theta[2], 0, 0, 1);
@@ -136,7 +157,7 @@ void bindProgram()
 	GLint h_modelViewMatrix = 
 		glGetUniformLocation(program, "projectionModelViewMatrix");
 	float m[16]; // column major.
-	matrix->GetProjectionModelViewMatrix(m); // TODO: is this correct?
+	matrix->GetProjectionModelViewMatrix(m);
 
 	// upload m to the GPU
 	GLboolean isRowMajor = GL_FALSE;
@@ -146,7 +167,7 @@ void bindProgram()
 void renderQuad()
 {
 	GLint first = 0;
-	GLsizei count = 4;
+	GLsizei count = 6;
 	glDrawArrays(GL_TRIANGLE_STRIP, first, count);
 	glBindVertexArray(0);
 }
@@ -314,6 +335,9 @@ void initScene(int argc, char *argv[])
   }
 
   glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+  // Initialize number of vertices
+  vertexCount = heightmapImage->getHeight() * heightmapImage->getWidth();
+  
 
   // do additional initialization here...
   glEnable(GL_DEPTH_TEST);
