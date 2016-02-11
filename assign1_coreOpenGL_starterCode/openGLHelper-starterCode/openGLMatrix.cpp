@@ -19,7 +19,7 @@ OpenGLMatrix::OpenGLMatrix()
 
 void OpenGLMatrix::Rotate(float angle, float x, float y, float z)
 {
-  glm::mat4 R = glm::rotate(angle, glm::vec3(x, y, z));
+  glm::mat4 R = glm::rotate(glm::radians(angle), glm::vec3(x, y, z));
   multiplyMatrixToCurrent(R);
 }
 
@@ -57,7 +57,7 @@ void OpenGLMatrix::Frustum(float left, float right, float bottom, float top, flo
 
 void OpenGLMatrix::Perspective(float fovY, float aspect, float zNear, float zFar)
 {
-  glm::mat4 P = glm::perspective(fovY, aspect, zNear, zFar);
+  glm::mat4 P = glm::perspective(glm::radians(fovY), aspect, zNear, zFar);
   multiplyMatrixToCurrent(P);
 }
 
