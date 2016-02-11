@@ -33,6 +33,9 @@
 using namespace std;
 
 void initHandlers();
+void initTerrainVertices();
+void initTerrainColors();
+void initTerrainIndices();
 void initArrays();
 void initBuffers();
 void initPipelineProgram();
@@ -44,6 +47,7 @@ void displayFunc();
 void idleFunc();
 void initScene(int argc, char* argv[]);
 void keyboardFunc(unsigned char key, int x, int y);
+void nextColorState();
 void mouseButtonFunc(int button, int state, int x, int y);
 void mouseMotionFunc(int x, int y);
 void mouseMotionDragFunc(int x, int y);
@@ -72,17 +76,21 @@ char windowTitle[512] = "CSCI 420 homework I";
 ImageIO * heightmapImage;
 
 // ############### My Code ############### //
-enum DRAW_STATE {DS_POINT = 0, DS_WIRE = 1, DS_SOLID = 2} ;
+enum DRAW_STATE { DS_POINT = 0, DS_WIRE = 1, DS_SOLID = 2};
 DRAW_STATE drawState = DS_SOLID;
+
+enum COLOR_STATE { CS_GRAYSCALE = 0, CS_RELIEF = 1 };
+COLOR_STATE colorState = CS_GRAYSCALE;
 
 OpenGLMatrix* matrix;
 BasicPipelineProgram* pipelineProgram;
 GLuint program;
 
-const float WORLDMAP_SIZE = 100.0f /* Represents one length side. */;
-const float WORLDMAP_MAX_HEIGHT = 5.0f /* Scales map larger or smaller. */;
+float WORLDMAP_SIZE = 100.0f /* Represents one length side. */;
+float WORLDMAP_SCALING = 0.2f /* Scales map larger or smaller. */;
 const float CAMERA_HEIGHT = 100.0f;
 const float CAMERA_DEPTH = 100.0f;
+const float MAX_COLOR = 255.0f;
 
 GLuint vertexBuffer;
 GLuint colorBuffer;
@@ -178,17 +186,26 @@ void initScene(int argc, char *argv[])
 	glEnable(GL_DEPTH_TEST);
 	matrix = new OpenGLMatrix();
 
+	initTerrainVertices();
+	initTerrainColors();
+	initTerrainIndices();
+
+	// Final setup
+	initArrays();
+	initBuffers();
+	initPipelineProgram();
+}
+
+void initTerrainVertices()
+{
 	// Cleanup
 	heightMapVertices.clear();
-	heightMapVertexColors.clear();
-	heightMapIndices.clear();
 
 	// Initialize vertices data:
 	unsigned int height = heightmapImage->getHeight();
-	unsigned int width = heightmapImage->getWidth();
+	unsigned int width = height;
 	unsigned int vertices = width * height;
 	heightMapVertices.resize(vertices);
-	heightMapVertexColors.resize(vertices);
 
 	// Populate the vertices
 	const float halfOfWorldSize = WORLDMAP_SIZE / 2.0f;
@@ -196,18 +213,40 @@ void initScene(int argc, char *argv[])
 	for (unsigned i = 0; i < vertices; ++i)
 	{
 		heightMapVertices[i].x = offset * (i % width) - halfOfWorldSize; /* Assume width > 0 */
-		heightMapVertices[i].z = i > (width - 1) ? 
-									(i / width) * (-offset) + halfOfWorldSize: /* Draw map from close (+) to far (-) while camera facing -z. */
-									halfOfWorldSize /* Draw first row at the default of 1.0f. */;
-		heightMapVertices[i].y = heightmapImage->getPixel(i % width, i / width, 0) / WORLDMAP_MAX_HEIGHT; /* TODO: populate with correct height. */
+		heightMapVertices[i].z = i >(width - 1) ?
+			(i / width) * (-offset) + halfOfWorldSize : /* Draw map from close (+) to far (-) while camera facing -z. */
+			halfOfWorldSize /* Draw first row at the default of 1.0f. */;
+		heightMapVertices[i].y = heightmapImage->getPixel(i % width, i / width, 0) * WORLDMAP_SCALING; /* TODO: populate with correct height. */
 	}
+}
+
+void initTerrainColors()
+{
+	// Cleanup
+	heightMapVertexColors.clear();
+
+	// Initialize vertices data:
+	unsigned int height = heightmapImage->getHeight();
+	unsigned int width = height;
+	unsigned int vertices = width * height;
+	heightMapVertexColors.resize(vertices);
 
 	// Populate the color of the vertices.
 	for (unsigned i = 0; i < vertices; ++i)
 	{
 		unsigned char color = heightmapImage->getPixel(i % width, i / width, 0);
-		heightMapVertexColors[i] = glm::vec4(color/300.0f, color/256.0f, color/255.0f, 1);
+		heightMapVertexColors[i] = glm::vec4(color, color, color, 1) / MAX_COLOR;
 	}
+}
+
+void initTerrainIndices()
+{
+	// Cleanup
+	heightMapIndices.clear();
+
+	// Initialize vertices data:
+	unsigned int height = heightmapImage->getHeight();
+	unsigned int width = height;
 
 	// Populate the index buffer
 	const unsigned numStrips = height - 1;
@@ -238,11 +277,6 @@ void initScene(int argc, char *argv[])
 			heightMapIndices[indexOffset++] = (r + 1) * height + width - 1;
 		}
 	}
-
-	// Final setup
-	initArrays();
-	initBuffers();
-	initPipelineProgram();
 }
 
 void initArrays()
@@ -324,8 +358,6 @@ void bindAndDrawVertexToProgram()
 	glEnableVertexAttribArray(attrib_color);
 	glBindBuffer(GL_ARRAY_BUFFER, colorBuffer);
 	glVertexAttribPointer(attrib_color, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
-
-	// Attribute 3: Index
 
 	// Draw
 	switch (drawState)
@@ -492,6 +524,7 @@ void keyboardFunc(unsigned char key, int x, int y)
 	case '1':
 		// Draw Points
 		drawState = DRAW_STATE::DS_POINT;
+
 		glutPostRedisplay();
 		break;
 
@@ -504,6 +537,14 @@ void keyboardFunc(unsigned char key, int x, int y)
 	case '3':
 		// Draw Mesh
 		drawState = DRAW_STATE::DS_SOLID;
+		colorState = COLOR_STATE::CS_RELIEF;
+		glutPostRedisplay();
+		break;
+
+	case '4':
+		// Draw Relief
+		drawState = DRAW_STATE::DS_SOLID;
+		colorState = COLOR_STATE::CS_RELIEF;
 		glutPostRedisplay();
 		break;
 
@@ -521,6 +562,11 @@ void keyboardFunc(unsigned char key, int x, int y)
 		saveScreenshot("screenshot.jpg");
 		break;
 	}
+}
+
+void nextColorState()
+{
+	
 }
 
 // write a screenshot to the specified filename
