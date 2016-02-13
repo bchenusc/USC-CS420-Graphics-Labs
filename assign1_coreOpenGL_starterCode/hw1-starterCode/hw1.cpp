@@ -15,6 +15,8 @@
 #include "openGLMatrix.h"
 #include "basicPipelineProgram.h"
 #include <vector>
+#include <sstream>
+#include <iomanip>
 
 #ifdef WIN32
   #ifdef _DEBUG
@@ -33,6 +35,8 @@
 using namespace std;
 
 void initHandlers();
+void initMapImage(const char* fileName);
+void initMap3D();
 void initTerrainVertices();
 void initTerrainColors();
 void initTerrainIndices();
@@ -45,9 +49,8 @@ void bindAndDrawVertexToProgram();
 
 void displayFunc();
 void idleFunc();
-void initScene(int argc, char* argv[]);
+void initScene();
 void keyboardFunc(unsigned char key, int x, int y);
-void nextColorState();
 void mouseButtonFunc(int button, int state, int x, int y);
 void mouseMotionFunc(int x, int y);
 void mouseMotionDragFunc(int x, int y);
@@ -61,13 +64,10 @@ int leftMouseButton = 0; // 1 if pressed, 0 if not
 int middleMouseButton = 0; // 1 if pressed, 0 if not
 int rightMouseButton = 0; // 1 if pressed, 0 if not
 
-typedef enum { ROTATE, TRANSLATE, SCALE } CONTROL_STATE;
-CONTROL_STATE controlState = ROTATE;
-
 // state of the world
-float landRotate[3] = { 0.0f, 0.0f, 0.0f };
-float landTranslate[3] = { 0.0f, 0.0f, 0.0f };
-float landScale[3] = { 1.0f, 1.0f, 1.0f };
+float camRotate[3] = { 0.0f, 0.0f, 0.0f };
+float camTranslate[3] = { 0.0f, 0.0f, 0.0f };
+float camZoom[3] = { 1.0f, 1.0f, 1.0f };
 
 int windowWidth = 1280;
 int windowHeight = 720;
@@ -79,15 +79,12 @@ ImageIO * heightmapImage;
 enum DRAW_STATE { DS_POINT = 0, DS_WIRE = 1, DS_SOLID = 2};
 DRAW_STATE drawState = DS_SOLID;
 
-enum COLOR_STATE { CS_GRAYSCALE = 0, CS_RELIEF = 1 };
-COLOR_STATE colorState = CS_GRAYSCALE;
-
 OpenGLMatrix* matrix;
 BasicPipelineProgram* pipelineProgram;
 GLuint program;
 
-float WORLDMAP_SIZE = 100.0f /* Represents one length side. */;
-float WORLDMAP_SCALING = 0.2f /* Scales map larger or smaller. */;
+const float WORLDMAP_SIZE = 100.0f /* Represents one length side. */;
+float worldScaling = 0.2f /* Scales map larger or smaller. */;
 const float CAMERA_HEIGHT = 100.0f;
 const float CAMERA_DEPTH = 100.0f;
 const float MAX_COLOR = 255.0f;
@@ -100,6 +97,19 @@ GLuint vertexArray;
 std::vector<glm::vec3> heightMapVertices;
 std::vector<glm::vec4> heightMapVertexColors;
 std::vector<unsigned int> heightMapIndices;
+
+int oldTime = 0; /* Calculates delta time. */
+float idleRotationSpeed = 0.025f;
+bool allowIdleScreenCapture = false;
+
+float rotateSensitivity = 1.0f;
+float translateSensitivity = 0.4f;
+float zoomSensitivity = 10.0f; 
+float scaleSensitivity = 0.01f;
+
+int screenshotCounter = 0;
+float screenshotDelayCounter = 0;
+const float screenshotDelay = 0.0666f;
 
 int main(int argc, char *argv[])
 {
@@ -144,7 +154,8 @@ int main(int argc, char *argv[])
 	#endif
 
 	// do initialization
-	initScene(argc, argv);
+	initScene();
+	initMapImage(argv[1]);
 
 	// sink forever into the glut loop
 	glutMainLoop();
@@ -168,24 +179,34 @@ void initHandlers()
 	glutKeyboardFunc(keyboardFunc);
 }
 
+void initScene()
+{
+	glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+	glEnable(GL_DEPTH_TEST);
+	if (matrix != nullptr) delete matrix;
+	matrix = new OpenGLMatrix();
+	initPipelineProgram();
+}
+
 // 1. Loads the image.
+void initMapImage(const char* file)
+{
+	// load the image from a jpeg disk file to main memory
+	if (heightmapImage != nullptr) delete heightmapImage;
+	heightmapImage = new ImageIO();
+	if (heightmapImage->loadJPEG(file) != ImageIO::OK)
+	{
+		cout << "Error reading image " << file << "." << endl;
+		exit(EXIT_FAILURE);
+	}
+	initMap3D();
+}
+
 // 2. Initializes the vertex count.
 // 3. Creates the vertex buffer.
 // 4. Initalizes the pipeline.
-void initScene(int argc, char *argv[])
+void initMap3D()
 {
-	// load the image from a jpeg disk file to main memory
-	heightmapImage = new ImageIO();
-	if (heightmapImage->loadJPEG(argv[1]) != ImageIO::OK)
-	{
-		cout << "Error reading image " << argv[1] << "." << endl;
-		exit(EXIT_FAILURE);
-	}
-
-	glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
-	glEnable(GL_DEPTH_TEST);
-	matrix = new OpenGLMatrix();
-
 	initTerrainVertices();
 	initTerrainColors();
 	initTerrainIndices();
@@ -193,7 +214,6 @@ void initScene(int argc, char *argv[])
 	// Final setup
 	initArrays();
 	initBuffers();
-	initPipelineProgram();
 }
 
 void initTerrainVertices()
@@ -216,7 +236,7 @@ void initTerrainVertices()
 		heightMapVertices[i].z = i >(width - 1) ?
 			(i / width) * (-offset) + halfOfWorldSize : /* Draw map from close (+) to far (-) while camera facing -z. */
 			halfOfWorldSize /* Draw first row at the default of 1.0f. */;
-		heightMapVertices[i].y = heightmapImage->getPixel(i % width, i / width, 0) * WORLDMAP_SCALING; /* TODO: populate with correct height. */
+		heightMapVertices[i].y = heightmapImage->getPixel(i % width, i / width, 0) * worldScaling; /* TODO: populate with correct height. */
 	}
 }
 
@@ -256,6 +276,7 @@ void initTerrainIndices()
 
 	unsigned int indexOffset = 0;
 	// Loop over the number of strips from top to bottom.
+	// Learned from: http://www.learnopengles.com/tag/triangle-strips/
 	for (unsigned r = 0; r < numStrips; ++r)
 	{
 		// Check if we are writing a degenerate.
@@ -310,6 +331,7 @@ void initBuffers()
 
 void initPipelineProgram()
 {
+	if (pipelineProgram != nullptr) delete pipelineProgram;
 	pipelineProgram = new BasicPipelineProgram();
 	pipelineProgram->Init("../openGLHelper-starterCode");
 }
@@ -320,10 +342,12 @@ void displayFunc()
 	glClear(GL_COLOR_BUFFER_BIT |
 		GL_DEPTH_BUFFER_BIT);
 	matrix->LoadIdentity();
-	matrix->LookAt(0, CAMERA_HEIGHT + landTranslate[1], CAMERA_DEPTH + landScale[2], 0, 0, 0, 0, 1, 0);
-	matrix->Rotate(landRotate[0], 1, 0, 0);
-	matrix->Rotate(landRotate[1], 0, 1, 0);
-	matrix->Rotate(landRotate[2], 0, 0, 1);
+	matrix->LookAt(0, CAMERA_HEIGHT + camZoom[2], CAMERA_DEPTH + camZoom[2], 0, 0, 0, 0, 1, 0);
+	matrix->Translate(camTranslate[0], camTranslate[1], 0);
+	matrix->Rotate(camRotate[0], 1, 0, 0);
+	matrix->Rotate(camRotate[1], 0, 1, 0);
+	matrix->Rotate(camRotate[2], 0, 0, 1);
+	
 	bindProgram();
 	glutSwapBuffers();
 }
@@ -382,12 +406,36 @@ void bindAndDrawVertexToProgram()
 
 void idleFunc()
 {
-  // do some stuff... 
+	// Calculate deltaTime
+	int newTime = glutGet(GLUT_ELAPSED_TIME);
+	int deltaTime = newTime - oldTime;
+	oldTime = newTime;
 
-  // for example, here, you can save the screenshots to disk (to make the animation)
+	if ((leftMouseButton | rightMouseButton | middleMouseButton) == 1)
+	{
+		// Redisplay the screen as normal if mouse inputs.
+		glutPostRedisplay();
+	}
+	else
+	{
+		// Rotate map by delta time if no input.
+		camRotate[1] += deltaTime * idleRotationSpeed;
+		glutPostRedisplay();
+	}
 
-  // make the screen update 
-  glutPostRedisplay();
+	// Create screenshots.
+	if (screenshotDelayCounter <= 0)
+	{
+		screenshotDelayCounter = screenshotDelay;
+		std::stringstream ss;
+		ss << "Screenshots/anim-" << std::setfill('0') << std::setw(4) << screenshotCounter << ".jpg"; // Prints 000x - xxxx
+		saveScreenshot(ss.str().c_str());
+		++screenshotCounter;
+	}
+	if (screenshotDelayCounter <= screenshotDelay)
+	{
+		screenshotDelayCounter -= deltaTime;
+	}
 }
 
 void reshapeFunc(int w, int h)
@@ -405,62 +453,28 @@ void reshapeFunc(int w, int h)
 
 void mouseMotionDragFunc(int x, int y)
 {
-  // mouse has moved and one of the mouse buttons is pressed (dragging)
+	// mouse has moved and one of the mouse buttons is pressed (dragging)
 
-  // the change in mouse position since the last invocation of this function
-  int mousePosDelta[2] = { x - mousePos[0], y - mousePos[1] };
+	// the change in mouse position since the last invocation of this function
+	int mousePosDelta[2] = { x - mousePos[0], y - mousePos[1] };
 
-  switch (controlState)
-  {
-    // translate the landscape
-    case TRANSLATE:
-      if (leftMouseButton)
-      {
-        // control x,y translation via the left mouse button
-        landTranslate[0] += mousePosDelta[0] * 0.01f;
-        landTranslate[1] -= mousePosDelta[1] * 0.01f;
-      }
-      if (middleMouseButton)
-      {
-        // control z translation via the middle mouse button
-        landTranslate[2] += mousePosDelta[1] * 0.01f;
-      }
-      break;
+	if (rightMouseButton)
+	{
+	// translate the camera via the right mouse button.
+	camTranslate[0] += mousePosDelta[0] * translateSensitivity;
+	camTranslate[1] -= mousePosDelta[1] * translateSensitivity;
+	}
 
-    // rotate the landscape
-    case ROTATE:
-      if (leftMouseButton)
-      {
-        // control x,y rotation via the left mouse button
-        landRotate[0] += mousePosDelta[1];
-        landRotate[1] += mousePosDelta[0];
-      }
-      if (middleMouseButton)
-      {
-        // control z rotation via the middle mouse button
-        landRotate[2] += mousePosDelta[1];
-      }
-      break;
+	if (leftMouseButton)
+	{
+	// translate the camera via the left mouse button.
+	camRotate[0] += mousePosDelta[1] * rotateSensitivity;
+	camRotate[1] += mousePosDelta[0] * rotateSensitivity;
+	}
 
-    // scale the landscape
-    case SCALE:
-      if (leftMouseButton)
-      {
-        // control x,y scaling via the left mouse button
-        landScale[0] *= 1.0f + mousePosDelta[0] * 0.01f;
-        landScale[1] *= 1.0f - mousePosDelta[1] * 0.01f;
-      }
-      if (middleMouseButton)
-      {
-        // control z scaling via the middle mouse button
-        landScale[2] *= 1.0f - mousePosDelta[1] * 0.01f;
-      }
-      break;
-  }
-
-  // store the new mouse position
-  mousePos[0] = x;
-  mousePos[1] = y;
+	// store the new mouse position
+	mousePos[0] = x;
+	mousePos[1] = y;
 }
 
 void mouseMotionFunc(int x, int y)
@@ -480,32 +494,26 @@ void mouseButtonFunc(int button, int state, int x, int y)
   {
     case GLUT_LEFT_BUTTON:
       leftMouseButton = (state == GLUT_DOWN);
+	  oldTime = glutGet(GLUT_ELAPSED_TIME);
     break;
 
     case GLUT_MIDDLE_BUTTON:
       middleMouseButton = (state == GLUT_DOWN);
+	  oldTime = glutGet(GLUT_ELAPSED_TIME);
     break;
 
     case GLUT_RIGHT_BUTTON:
       rightMouseButton = (state == GLUT_DOWN);
-    break;
-  }
-
-  // keep track of whether CTRL and SHIFT keys are pressed
-  switch (glutGetModifiers())
-  {
-    case GLUT_ACTIVE_CTRL:
-      controlState = TRANSLATE;
+	  oldTime = glutGet(GLUT_ELAPSED_TIME);
     break;
 
-    case GLUT_ACTIVE_SHIFT:
-      controlState = SCALE;
-    break;
+	case 3 /* Scroll up */:
+		if (state == GLUT_DOWN) { camZoom[2] -= 1.0f; }
+	break;
 
-    // if CTRL and SHIFT are not pressed, we are in rotate mode
-    default:
-      controlState = ROTATE;
-    break;
+	case 4 /* Scroll down */:
+		if (state == GLUT_DOWN) { camZoom[2] += 1.0f; }
+	break;
   }
 
   // store the new mouse position
@@ -537,36 +545,40 @@ void keyboardFunc(unsigned char key, int x, int y)
 	case '3':
 		// Draw Mesh
 		drawState = DRAW_STATE::DS_SOLID;
-		colorState = COLOR_STATE::CS_RELIEF;
 		glutPostRedisplay();
 		break;
 
-	case '4':
-		// Draw Relief
-		drawState = DRAW_STATE::DS_SOLID;
-		colorState = COLOR_STATE::CS_RELIEF;
-		glutPostRedisplay();
-		break;
 
 	case '-':
-		// Zoom in 
-		
+		if (worldScaling > 0.05)
+		{
+			cout << "Scale down" << endl;
+			worldScaling -= scaleSensitivity;
+			initMap3D();
+		}
 		break;
 
-	case ' ':
-		cout << "You pressed the spacebar." << endl;
+	case '=':
+		cout << "Scale Up" << endl;
+		worldScaling += scaleSensitivity;
+		initMap3D();
 		break;
 
-	case 'x':
-		// take a screenshot
-		saveScreenshot("screenshot.jpg");
-		break;
+	case 'q': initMapImage("./heightmap/Heightmap.jpg"); break;
+	case 'w': initMapImage("./heightmap/spiral.jpg"); break;
+	case 'e': initMapImage("./heightmap/GrandTeton-128.jpg"); break;
+	case 'r': initMapImage("./heightmap/GrandTeton-256.jpg"); break;
+	case 't': initMapImage("./heightmap/GrandTeton-512.jpg"); break;
+	case 'y': initMapImage("./heightmap/GrandTeton-768.jpg"); break;
+	case 'a': initMapImage("./heightmap/OhioPyle-128.jpg"); break;
+	case 's': initMapImage("./heightmap/OhioPyle-256.jpg"); break;
+	case 'd': initMapImage("./heightmap/OhioPyle-512.jpg"); break;
+	case 'f': initMapImage("./heightmap/OhioPyle-768.jpg");  break;
+	case 'z': initMapImage("./heightmap/SantaMonicaMountains-128.jpg"); break;
+	case 'x': initMapImage("./heightmap/SantaMonicaMountains-256.jpg"); break;
+	case 'c': initMapImage("./heightmap/SantaMonicaMountains-512.jpg"); break;
+	case 'v': initMapImage("./heightmap/SantaMonicaMountains-768.jpg"); break;
 	}
-}
-
-void nextColorState()
-{
-	
 }
 
 // write a screenshot to the specified filename
