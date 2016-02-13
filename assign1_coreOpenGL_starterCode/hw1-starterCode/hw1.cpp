@@ -110,6 +110,7 @@ float scaleSensitivity = 0.01f;
 int screenshotCounter = 0;
 float screenshotDelayCounter = 0;
 const float screenshotDelay = 0.0666f;
+bool startScreenshotRecording = false;
 
 int main(int argc, char *argv[])
 {
@@ -423,18 +424,21 @@ void idleFunc()
 		glutPostRedisplay();
 	}
 
-	// Create screenshots.
-	if (screenshotDelayCounter <= 0)
+	if (startScreenshotRecording)
 	{
-		screenshotDelayCounter = screenshotDelay;
-		std::stringstream ss;
-		ss << "Screenshots/anim-" << std::setfill('0') << std::setw(4) << screenshotCounter << ".jpg"; // Prints 000x - xxxx
-		saveScreenshot(ss.str().c_str());
-		++screenshotCounter;
-	}
-	if (screenshotDelayCounter <= screenshotDelay)
-	{
-		screenshotDelayCounter -= deltaTime;
+		// Create screenshots.
+		if (screenshotDelayCounter <= 0)
+		{
+			screenshotDelayCounter = screenshotDelay;
+			std::stringstream ss;
+			ss << "Screenshots/anim-" << std::setfill('0') << std::setw(4) << screenshotCounter << ".jpg"; // Prints 000x - xxxx
+			saveScreenshot(ss.str().c_str());
+			++screenshotCounter;
+		}
+		if (screenshotDelayCounter <= screenshotDelay)
+		{
+			screenshotDelayCounter -= deltaTime;
+		}
 	}
 }
 
@@ -549,19 +553,21 @@ void keyboardFunc(unsigned char key, int x, int y)
 		break;
 
 
-	case '-':
+	case '-' /* Scal world down*/:
 		if (worldScaling > 0.05)
 		{
-			cout << "Scale down" << endl;
 			worldScaling -= scaleSensitivity;
 			initMap3D();
 		}
 		break;
 
-	case '=':
-		cout << "Scale Up" << endl;
+	case '=' /* Scale world up*/:
 		worldScaling += scaleSensitivity;
 		initMap3D();
+		break;
+
+	case 'p':
+		startScreenshotRecording = !startScreenshotRecording;
 		break;
 
 	case 'q': initMapImage("./heightmap/Heightmap.jpg"); break;
