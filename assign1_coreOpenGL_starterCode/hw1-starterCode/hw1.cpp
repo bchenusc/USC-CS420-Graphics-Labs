@@ -271,7 +271,7 @@ void bindAndDrawVertexToProgram()
 	GLuint attrib_pos = glGetAttribLocation(program, "position");
 	glEnableVertexAttribArray(attrib_pos);
 	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-	glVertexAttribPointer(attrib_pos, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+	glVertexAttribPointer(attrib_pos, 3, GL_DOUBLE, GL_FALSE, 0, (void*)0);
 
 	// Draw
 	switch (drawState)
@@ -283,7 +283,7 @@ void bindAndDrawVertexToProgram()
 
 	case DRAW_STATE::DS_WIRE:
 		glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-		glDrawArrays(GL_LINES, 0, splines[0].numControlPoints);
+		glDrawArrays(GL_LINE_LOOP, 0, splines[0].numControlPoints);
 		break;
 	}
 	glBindVertexArray(0);
