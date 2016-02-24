@@ -18,12 +18,7 @@ struct Spline
 	Point * points;
 };
 
-// the spline array 
-Spline * splines;
-// total number of splines 
-int numSplines;
-
-int loadSplines(char * argv)
+int loadSplines(char * argv, Spline** splines, int& numSplines)
 {
 	char * cName = (char *)malloc(128 * sizeof(char));
 	FILE * fileList;
@@ -41,7 +36,7 @@ int loadSplines(char * argv)
 	// stores the number of splines in a global variable 
 	fscanf(fileList, "%d", &numSplines);
 
-	splines = (Spline*)malloc(numSplines * sizeof(Spline));
+	*splines = (Spline*)malloc(numSplines * sizeof(Spline));
 
 	// reads through the spline files 
 	for (j = 0; j < numSplines; j++)
@@ -60,14 +55,14 @@ int loadSplines(char * argv)
 		fscanf(fileSpline, "%d %d", &iLength, &iType);
 
 		// allocate memory for all the points
-		splines[j].points = (Point *)malloc(iLength * sizeof(Point));
-		splines[j].numControlPoints = iLength;
+		(*splines)[j].points = (Point *)malloc(iLength * sizeof(Point));
+		(*splines)[j].numControlPoints = iLength;
 
 		// saves the data to the struct
 		while (fscanf(fileSpline, "%lf %lf %lf",
-			&splines[j].points[i].x,
-			&splines[j].points[i].y,
-			&splines[j].points[i].z) != EOF)
+			&(*splines)[j].points[i].x,
+			&(*splines)[j].points[i].y,
+			&(*splines)[j].points[i].z) != EOF)
 		{
 			i++;
 		}
@@ -89,8 +84,9 @@ int loadSplines(char * argv)
 // then type your track file name for the "Command Arguments".
 // You can also repeat this process for the "Release" configuration.
 
-/*int main(int argc, char ** argv)
+void initSpline(int argc, char ** argv, Spline** splines, int& numSplines)
 {
+	
 	if (argc<2)
 	{
 		printf("usage: %s <trackfile>\n", argv[0]);
@@ -98,12 +94,10 @@ int loadSplines(char * argv)
 	}
 
 	// load the splines from the provided filename
-	loadSplines(argv[1]);
+	loadSplines(argv[1], splines, numSplines);
 
 	printf("Loaded %d spline(s).\n", numSplines);
 	for (int i = 0; i<numSplines; i++)
-		printf("Num control points in spline %d: %d.\n", i, splines[i].numControlPoints);
-
-	return 0;
+		printf("Num control points in spline %d: %d.\n", i, (*splines)[i].numControlPoints);
 }
-*/
+

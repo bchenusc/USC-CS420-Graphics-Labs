@@ -16,6 +16,9 @@
     <Filter Include="shaders">
       <UniqueIdentifier>{159c2671-e4ad-4039-af21-2dabcfb2367e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="splines">
+      <UniqueIdentifier>{03f8214f-f6b1-41c8-b183-a1c153c31bc7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="hw1.cpp">
@@ -56,6 +59,12 @@
     <ClInclude Include="..\external\imageIO\imageIO.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SplineTool.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HeightmapTool.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\openGLHelper-starterCode\basic.fragmentShader.glsl">
@@ -64,5 +73,44 @@
     <None Include="..\openGLHelper-starterCode\basic.vertexShader.glsl">
       <Filter>shaders</Filter>
     </None>
+    <None Include="splines\circle.sp">
+      <Filter>splines</Filter>
+    </None>
+    <None Include="splines\cs1.sp">
+      <Filter>splines</Filter>
+    </None>
+    <None Include="splines\goodRide.sp">
+      <Filter>splines</Filter>
+    </None>
+    <None Include="splines\leftturn.sp">
+      <Filter>splines</Filter>
+    </None>
+    <None Include="splines\rollerCoaster.sp">
+      <Filter>splines</Filter>
+    </None>
+    <None Include="splines\star.sp">
+      <Filter>splines</Filter>
+    </None>
+    <None Include="splines\straightLine.sp">
+      <Filter>splines</Filter>
+    </None>
+    <None Include="splines\upsidedown.sp">
+      <Filter>splines</Filter>
+    </None>
+    <None Include="splines\xaxis.sp">
+      <Filter>splines</Filter>
+    </None>
+    <None Include="splines\xyz.sp">
+      <Filter>splines</Filter>
+    </None>
+    <None Include="splines\yaxis.sp">
+      <Filter>splines</Filter>
+    </None>
+    <None Include="splines\zaxis.sp">
+      <Filter>splines</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="track.txt" />
   </ItemGroup>
 </Project>

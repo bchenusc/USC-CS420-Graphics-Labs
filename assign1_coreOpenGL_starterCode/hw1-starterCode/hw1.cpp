@@ -17,6 +17,7 @@
 #include <vector>
 #include <sstream>
 #include <iomanip>
+#include "SplineTool.h"
 
 #ifdef WIN32
   #ifdef _DEBUG
@@ -46,6 +47,10 @@ void initPipelineProgram();
 void bindProgram();
 void bindProjectionMatrixToProgram();
 void bindAndDrawVertexToProgram();
+
+// hw2
+void initSplineBuffers();
+
 
 void displayFunc();
 void idleFunc();
@@ -77,7 +82,7 @@ ImageIO * heightmapImage;
 
 // ############### My Code ############### //
 enum DRAW_STATE { DS_POINT = 0, DS_WIRE = 1, DS_SOLID = 2};
-DRAW_STATE drawState = DS_SOLID;
+DRAW_STATE drawState = DS_WIRE;
 
 OpenGLMatrix* matrix;
 BasicPipelineProgram* pipelineProgram;
@@ -111,6 +116,10 @@ int screenshotCounter = 0;
 float screenshotDelayCounter = 0;
 const float screenshotDelay = 0.0666f;
 bool startScreenshotRecording = false;
+
+// Hw2
+Spline * splines /* The splines array */;
+int numSplines /* Total number of splines. */;
 
 int main(int argc, char *argv[])
 {
@@ -156,7 +165,13 @@ int main(int argc, char *argv[])
 
 	// do initialization
 	initScene();
-	initMapImage(argv[1]);
+	
+	// hw2
+	initSpline(argc, argv, &splines, numSplines);
+	initSplineBuffers();
+
+	// hw1
+	// initMapImage(argv[1]);
 
 	// sink forever into the glut loop
 	glutMainLoop();
@@ -313,11 +328,11 @@ void initArrays()
 void initBuffers()
 {
 	/*
-		GLuint vertexBuffer (vec3);
-		GLuint colorBuffer (vec4);
-		GLuint indexBuffer (uint);
+	GLuint vertexBuffer (vec3);
+	GLuint colorBuffer (vec4);
+	GLuint indexBuffer (uint);
 	*/
-	glGenBuffers(1, &vertexBuffer);
+	/*glGenBuffers(1, &vertexBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
 	glBufferData(GL_ARRAY_BUFFER, heightMapVertices.size() * sizeof(glm::vec3), &heightMapVertices[0], GL_STATIC_DRAW);
 
@@ -328,6 +343,24 @@ void initBuffers()
 	glGenBuffers(1, &indexBuffer);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, heightMapIndices.size() * sizeof(unsigned int), &heightMapIndices[0], GL_STATIC_DRAW);
+	*/
+}
+
+void initSplineBuffers()
+{
+	for (int i = 0; i < splines[0].numControlPoints; ++i)
+	{
+		cout << splines[0].points[i].x << ", " <<
+			splines[0].points[i].y << ", " <<
+			splines[0].points[i].z << ", " << endl;
+	}
+
+	/*
+	GLuint vertexBuffer (vec3);
+	*/
+	glGenBuffers(1, &vertexBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+	glBufferData(GL_ARRAY_BUFFER, splines[0].numControlPoints * sizeof(glm::vec3), splines[0].points, GL_STATIC_DRAW);	
 }
 
 void initPipelineProgram()
@@ -379,10 +412,10 @@ void bindAndDrawVertexToProgram()
 	glVertexAttribPointer(attrib_pos, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
 	// Attribute 2: Color
-	GLuint attrib_color = glGetAttribLocation(program, "color");
-	glEnableVertexAttribArray(attrib_color);
-	glBindBuffer(GL_ARRAY_BUFFER, colorBuffer);
-	glVertexAttribPointer(attrib_color, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
+	// GLuint attrib_color = glGetAttribLocation(program, "color");
+	// glEnableVertexAttribArray(attrib_color);
+	// glBindBuffer(GL_ARRAY_BUFFER, colorBuffer);
+	// glVertexAttribPointer(attrib_color, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
 	// Draw
 	switch (drawState)
@@ -394,13 +427,14 @@ void bindAndDrawVertexToProgram()
 
 	case DRAW_STATE::DS_WIRE:
 		glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-		glDrawArrays(GL_LINES, 0, heightMapVertices.size());
+		glDrawArrays(GL_LINES, 0, splines[0].numControlPoints);
 		break;
 
-	case DRAW_STATE::DS_SOLID:
+	/*case DRAW_STATE::DS_SOLID:
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
 		glDrawElements(GL_TRIANGLE_STRIP, heightMapIndices.size(), GL_UNSIGNED_INT, (void*)0);
 		break;
+		*/
 	}
 	glBindVertexArray(0);
 }

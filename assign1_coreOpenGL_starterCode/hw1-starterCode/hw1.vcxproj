@@ -25,10 +25,27 @@
     <ClInclude Include="..\openGLHelper-starterCode\openGLHeader.h" />
     <ClInclude Include="..\openGLHelper-starterCode\openGLMatrix.h" />
     <ClInclude Include="..\openGLHelper-starterCode\pipelineProgram.h" />
+    <ClInclude Include="HeightmapTool.h" />
+    <ClInclude Include="SplineTool.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\openGLHelper-starterCode\basic.fragmentShader.glsl" />
     <None Include="..\openGLHelper-starterCode\basic.vertexShader.glsl" />
+    <None Include="splines\circle.sp" />
+    <None Include="splines\cs1.sp" />
+    <None Include="splines\goodRide.sp" />
+    <None Include="splines\leftturn.sp" />
+    <None Include="splines\rollerCoaster.sp" />
+    <None Include="splines\star.sp" />
+    <None Include="splines\straightLine.sp" />
+    <None Include="splines\upsidedown.sp" />
+    <None Include="splines\xaxis.sp" />
+    <None Include="splines\xyz.sp" />
+    <None Include="splines\yaxis.sp" />
+    <None Include="splines\zaxis.sp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="track.txt" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{15913627-D497-4AA0-BD7E-734F0D40F7C9}</ProjectGuid>
