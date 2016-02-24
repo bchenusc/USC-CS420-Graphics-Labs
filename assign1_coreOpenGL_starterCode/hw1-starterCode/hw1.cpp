@@ -76,22 +76,20 @@ float camZoom[3] = { 1.0f, 1.0f, 1.0f };
 
 int windowWidth = 1280;
 int windowHeight = 720;
-char windowTitle[512] = "CSCI 420 homework I";
+char windowTitle[512] = "CSCI 420 homework II";
 
 ImageIO * heightmapImage;
 
 // ############### My Code ############### //
-enum DRAW_STATE { DS_POINT = 0, DS_WIRE = 1, DS_SOLID = 2};
+enum DRAW_STATE { DS_POINT = 0, DS_WIRE = 1};
 DRAW_STATE drawState = DS_WIRE;
 
 OpenGLMatrix* matrix;
 BasicPipelineProgram* pipelineProgram;
 GLuint program;
 
-const float WORLDMAP_SIZE = 100.0f /* Represents one length side. */;
-float worldScaling = 0.2f /* Scales map larger or smaller. */;
-const float CAMERA_HEIGHT = 100.0f;
-const float CAMERA_DEPTH = 100.0f;
+const float CAMERA_HEIGHT = 1.0f;
+const float CAMERA_DEPTH = 1.0f;
 const float MAX_COLOR = 255.0f;
 
 GLuint vertexBuffer;
@@ -107,9 +105,9 @@ int oldTime = 0; /* Calculates delta time. */
 float idleRotationSpeed = 0.025f;
 bool allowIdleScreenCapture = false;
 
-float rotateSensitivity = 1.0f;
-float translateSensitivity = 0.4f;
-float zoomSensitivity = 10.0f; 
+float rotateSensitivity = 0.05f;
+float translateSensitivity = 0.025f;
+float zoomSensitivity = 0.05f; 
 float scaleSensitivity = 0.01f;
 
 int screenshotCounter = 0;
@@ -118,7 +116,7 @@ const float screenshotDelay = 0.0666f;
 bool startScreenshotRecording = false;
 
 // Hw2
-Spline * splines /* The splines array */;
+Spline* splines /* The splines array */;
 int numSplines /* Total number of splines. */;
 
 int main(int argc, char *argv[])
@@ -170,9 +168,6 @@ int main(int argc, char *argv[])
 	initSpline(argc, argv, &splines, numSplines);
 	initSplineBuffers();
 
-	// hw1
-	// initMapImage(argv[1]);
-
 	// sink forever into the glut loop
 	glutMainLoop();
 }
@@ -197,123 +192,11 @@ void initHandlers()
 
 void initScene()
 {
-	glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+	glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 	glEnable(GL_DEPTH_TEST);
 	if (matrix != nullptr) delete matrix;
 	matrix = new OpenGLMatrix();
 	initPipelineProgram();
-}
-
-// 1. Loads the image.
-void initMapImage(const char* file)
-{
-	// load the image from a jpeg disk file to main memory
-	if (heightmapImage != nullptr) delete heightmapImage;
-	heightmapImage = new ImageIO();
-	if (heightmapImage->loadJPEG(file) != ImageIO::OK)
-	{
-		cout << "Error reading image " << file << "." << endl;
-		exit(EXIT_FAILURE);
-	}
-	initMap3D();
-}
-
-// 2. Initializes the vertex count.
-// 3. Creates the vertex buffer.
-// 4. Initalizes the pipeline.
-void initMap3D()
-{
-	initTerrainVertices();
-	initTerrainColors();
-	initTerrainIndices();
-
-	// Final setup
-	initArrays();
-	initBuffers();
-}
-
-void initTerrainVertices()
-{
-	// Cleanup
-	heightMapVertices.clear();
-
-	// Initialize vertices data:
-	unsigned int height = heightmapImage->getHeight();
-	unsigned int width = height;
-	unsigned int vertices = width * height;
-	heightMapVertices.resize(vertices);
-
-	// Populate the vertices
-	const float halfOfWorldSize = WORLDMAP_SIZE / 2.0f;
-	const float offset = WORLDMAP_SIZE / (width - 1); /* Assume width > 1 */
-	for (unsigned i = 0; i < vertices; ++i)
-	{
-		heightMapVertices[i].x = offset * (i % width) - halfOfWorldSize; /* Assume width > 0 */
-		heightMapVertices[i].z = i >(width - 1) ?
-			(i / width) * (-offset) + halfOfWorldSize : /* Draw map from close (+) to far (-) while camera facing -z. */
-			halfOfWorldSize /* Draw first row at the default of 1.0f. */;
-		heightMapVertices[i].y = heightmapImage->getPixel(i % width, i / width, 0) * worldScaling; /* TODO: populate with correct height. */
-	}
-}
-
-void initTerrainColors()
-{
-	// Cleanup
-	heightMapVertexColors.clear();
-
-	// Initialize vertices data:
-	unsigned int height = heightmapImage->getHeight();
-	unsigned int width = height;
-	unsigned int vertices = width * height;
-	heightMapVertexColors.resize(vertices);
-
-	// Populate the color of the vertices.
-	for (unsigned i = 0; i < vertices; ++i)
-	{
-		unsigned char color = heightmapImage->getPixel(i % width, i / width, 0);
-		heightMapVertexColors[i] = glm::vec4(color, color, color, 1) / MAX_COLOR;
-	}
-}
-
-void initTerrainIndices()
-{
-	// Cleanup
-	heightMapIndices.clear();
-
-	// Initialize vertices data:
-	unsigned int height = heightmapImage->getHeight();
-	unsigned int width = height;
-
-	// Populate the index buffer
-	const unsigned numStrips = height - 1;
-	const unsigned numDegens = 2 * (numStrips - 1);
-	const unsigned verticesPerStrip = 2 * width;
-	heightMapIndices.resize((verticesPerStrip * numStrips) + numDegens);
-
-	unsigned int indexOffset = 0;
-	// Loop over the number of strips from top to bottom.
-	// Learned from: http://www.learnopengles.com/tag/triangle-strips/
-	for (unsigned r = 0; r < numStrips; ++r)
-	{
-		// Check if we are writing a degenerate.
-		if (r > 0)
-		{
-			heightMapIndices[indexOffset++] = r * height;
-		}
-
-		// Writing the strip
-		for (unsigned c = 0; c < width; ++c)
-		{
-			heightMapIndices[indexOffset++] = r * height + c;
-			heightMapIndices[indexOffset++] = (r + 1) * height + c;
-		}
-
-		// Last degenerate must repeat last vertex.
-		if (r < height - 2)
-		{
-			heightMapIndices[indexOffset++] = (r + 1) * height + width - 1;
-		}
-	}
 }
 
 void initArrays()
@@ -323,27 +206,6 @@ void initArrays()
 	*/
 	glGenVertexArrays(1, &vertexArray);
 	glBindVertexArray(vertexArray);
-}
-
-void initBuffers()
-{
-	/*
-	GLuint vertexBuffer (vec3);
-	GLuint colorBuffer (vec4);
-	GLuint indexBuffer (uint);
-	*/
-	/*glGenBuffers(1, &vertexBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-	glBufferData(GL_ARRAY_BUFFER, heightMapVertices.size() * sizeof(glm::vec3), &heightMapVertices[0], GL_STATIC_DRAW);
-
-	glGenBuffers(1, &colorBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, colorBuffer);
-	glBufferData(GL_ARRAY_BUFFER, heightMapVertexColors.size() * sizeof(glm::vec4), &heightMapVertexColors[0], GL_STATIC_DRAW);
-
-	glGenBuffers(1, &indexBuffer);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, heightMapIndices.size() * sizeof(unsigned int), &heightMapIndices[0], GL_STATIC_DRAW);
-	*/
 }
 
 void initSplineBuffers()
@@ -360,7 +222,7 @@ void initSplineBuffers()
 	*/
 	glGenBuffers(1, &vertexBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-	glBufferData(GL_ARRAY_BUFFER, splines[0].numControlPoints * sizeof(glm::vec3), splines[0].points, GL_STATIC_DRAW);	
+	glBufferData(GL_ARRAY_BUFFER, splines[0].numControlPoints * sizeof(Point), splines[0].points, GL_STATIC_DRAW);	
 }
 
 void initPipelineProgram()
@@ -411,30 +273,18 @@ void bindAndDrawVertexToProgram()
 	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
 	glVertexAttribPointer(attrib_pos, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
-	// Attribute 2: Color
-	// GLuint attrib_color = glGetAttribLocation(program, "color");
-	// glEnableVertexAttribArray(attrib_color);
-	// glBindBuffer(GL_ARRAY_BUFFER, colorBuffer);
-	// glVertexAttribPointer(attrib_color, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
-
 	// Draw
 	switch (drawState)
 	{
 	case DRAW_STATE::DS_POINT:
 		glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-		glDrawArrays(GL_POINTS, 0, heightMapVertices.size());
+		glDrawArrays(GL_POINTS, 0, splines[0].numControlPoints);
 		break;
 
 	case DRAW_STATE::DS_WIRE:
 		glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
 		glDrawArrays(GL_LINES, 0, splines[0].numControlPoints);
 		break;
-
-	/*case DRAW_STATE::DS_SOLID:
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
-		glDrawElements(GL_TRIANGLE_STRIP, heightMapIndices.size(), GL_UNSIGNED_INT, (void*)0);
-		break;
-		*/
 	}
 	glBindVertexArray(0);
 }
@@ -454,7 +304,7 @@ void idleFunc()
 	else
 	{
 		// Rotate map by delta time if no input.
-		camRotate[1] += deltaTime * idleRotationSpeed;
+		//camRotate[1] += deltaTime * idleRotationSpeed;
 		glutPostRedisplay();
 	}
 
@@ -580,45 +430,9 @@ void keyboardFunc(unsigned char key, int x, int y)
 		glutPostRedisplay();
 		break;
 
-	case '3':
-		// Draw Mesh
-		drawState = DRAW_STATE::DS_SOLID;
-		glutPostRedisplay();
-		break;
-
-
-	case '-' /* Scal world down*/:
-		if (worldScaling > 0.05)
-		{
-			worldScaling -= scaleSensitivity;
-			initMap3D();
-		}
-		break;
-
-	case '=' /* Scale world up*/:
-		worldScaling += scaleSensitivity;
-		initMap3D();
-		break;
-
 	case 'p':
 		startScreenshotRecording = !startScreenshotRecording;
 		break;
-
-	/*case 'q': initMapImage("./heightmap/Heightmap.jpg"); break;
-	case 'w': initMapImage("./heightmap/spiral.jpg"); break;
-	case 'e': initMapImage("./heightmap/GrandTeton-128.jpg"); break;
-	case 'r': initMapImage("./heightmap/GrandTeton-256.jpg"); break;
-	case 't': initMapImage("./heightmap/GrandTeton-512.jpg"); break;
-	case 'y': initMapImage("./heightmap/GrandTeton-768.jpg"); break;
-	case 'a': initMapImage("./heightmap/OhioPyle-128.jpg"); break;
-	case 's': initMapImage("./heightmap/OhioPyle-256.jpg"); break;
-	case 'd': initMapImage("./heightmap/OhioPyle-512.jpg"); break;
-	case 'f': initMapImage("./heightmap/OhioPyle-768.jpg");  break;
-	case 'z': initMapImage("./heightmap/SantaMonicaMountains-128.jpg"); break;
-	case 'x': initMapImage("./heightmap/SantaMonicaMountains-256.jpg"); break;
-	case 'c': initMapImage("./heightmap/SantaMonicaMountains-512.jpg"); break;
-	case 'v': initMapImage("./heightmap/SantaMonicaMountains-768.jpg"); break;
-	*/
 	}
 }
 

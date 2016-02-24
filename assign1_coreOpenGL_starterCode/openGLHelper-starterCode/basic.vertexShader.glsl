@@ -14,6 +14,6 @@ void main()
   // students need to implement this
   
   gl_Position = projectionModelViewMatrix * vec4(position, 1.0f);
-  col = vec4(0,0,1, 1);
+  col = vec4(0,255,0, 1);
 }
 
