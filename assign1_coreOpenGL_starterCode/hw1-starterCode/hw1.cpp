@@ -570,7 +570,7 @@ void keyboardFunc(unsigned char key, int x, int y)
 		startScreenshotRecording = !startScreenshotRecording;
 		break;
 
-	case 'q': initMapImage("./heightmap/Heightmap.jpg"); break;
+	/*case 'q': initMapImage("./heightmap/Heightmap.jpg"); break;
 	case 'w': initMapImage("./heightmap/spiral.jpg"); break;
 	case 'e': initMapImage("./heightmap/GrandTeton-128.jpg"); break;
 	case 'r': initMapImage("./heightmap/GrandTeton-256.jpg"); break;
@@ -584,6 +584,7 @@ void keyboardFunc(unsigned char key, int x, int y)
 	case 'x': initMapImage("./heightmap/SantaMonicaMountains-256.jpg"); break;
 	case 'c': initMapImage("./heightmap/SantaMonicaMountains-512.jpg"); break;
 	case 'v': initMapImage("./heightmap/SantaMonicaMountains-768.jpg"); break;
+	*/
 	}
 }
 
