@@ -50,7 +50,8 @@ void bindAndDrawVertexToProgram();
 
 // hw2
 void initSplineBuffers();
-
+void generateBasisVector();
+void generatePoints(int controlPoints);
 
 void displayFunc();
 void idleFunc();
@@ -93,13 +94,8 @@ const float CAMERA_DEPTH = 1.0f;
 const float MAX_COLOR = 255.0f;
 
 GLuint vertexBuffer;
-GLuint colorBuffer;
 GLuint indexBuffer;
 GLuint vertexArray;
-
-std::vector<glm::vec3> heightMapVertices;
-std::vector<glm::vec4> heightMapVertexColors;
-std::vector<unsigned int> heightMapIndices;
 
 int oldTime = 0; /* Calculates delta time. */
 float idleRotationSpeed = 0.025f;
@@ -118,6 +114,12 @@ bool startScreenshotRecording = false;
 // Hw2
 Spline* splines /* The splines array */;
 int numSplines /* Total number of splines. */;
+
+std::vector<unsigned int> wireFrameIndex;
+std::vector<Point> splinePoints;
+Point4 catmullBasis[4];
+const double sTensionParameter = 0.5;
+const double uStepSize = 0.01;
 
 int main(int argc, char *argv[])
 {
@@ -210,19 +212,59 @@ void initArrays()
 
 void initSplineBuffers()
 {
-	for (int i = 0; i < splines[0].numControlPoints; ++i)
-	{
-		cout << splines[0].points[i].x << ", " <<
-			splines[0].points[i].y << ", " <<
-			splines[0].points[i].z << ", " << endl;
-	}
+	generatePoints(splines[0].numControlPoints);
 
 	/*
-	GLuint vertexBuffer (vec3);
+	Index Array
+	Looks like: 0, 1, 1, 2, 2, 3, 3, 4, 4 ... n - 2, n - 2, n - 1
+	*/
+
+	wireFrameIndex.reserve(1000);
+	wireFrameIndex.push_back(0);
+	for (int i = 1; i < splinePoints.size(); ++i)
+	{
+		wireFrameIndex.push_back(i);
+		wireFrameIndex.push_back(i);
+	}
+	wireFrameIndex.push_back(splinePoints.size() - 1);
+
+	/*
+		GLuint vertexBuffer (vec3);
 	*/
 	glGenBuffers(1, &vertexBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-	glBufferData(GL_ARRAY_BUFFER, splines[0].numControlPoints * sizeof(Point), splines[0].points, GL_STATIC_DRAW);	
+	glBufferData(GL_ARRAY_BUFFER, splinePoints.size() * sizeof(Point), &splinePoints[0], GL_STATIC_DRAW);	
+
+	glGenBuffers(1, &indexBuffer);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, wireFrameIndex.size() * sizeof(unsigned int), &wireFrameIndex[0], GL_STATIC_DRAW);
+}
+
+void generatePoints(int controlPoints)
+{
+	generateBasisVector();
+
+	splinePoints.reserve(controlPoints * (int)(1.0 / uStepSize));
+
+	for (int i = 0; i < controlPoints - 3; ++i)
+	{
+		for (double u = 0.0; u <= 1.0; u += uStepSize)
+		{
+			splinePoints.push_back(
+				CatmullRomAlgorithm(
+				u, catmullBasis[0], catmullBasis[1], catmullBasis[2], catmullBasis[3],
+				splines[0].points[i], splines[0].points[i + 1], splines[0].points[i + 2], splines[0].points[i + 3]));
+		}
+	}
+}
+
+void generateBasisVector()
+{
+	const double s = sTensionParameter;
+	catmullBasis[0] = Point4(-s, 2 - s, s - 2, s);
+	catmullBasis[1] = Point4(2*s, s-3, 3-2*s, -s);
+	catmullBasis[2] = Point4(-s, 0, s, 0);
+	catmullBasis[3] = Point4(0, 1, 0, 0);
 }
 
 void initPipelineProgram()
@@ -282,8 +324,8 @@ void bindAndDrawVertexToProgram()
 		break;
 
 	case DRAW_STATE::DS_WIRE:
-		glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-		glDrawArrays(GL_LINE_LOOP, 0, splines[0].numControlPoints);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+		glDrawElements(GL_LINES, wireFrameIndex.size(), GL_UNSIGNED_INT, (void*)0);
 		break;
 	}
 	glBindVertexArray(0);

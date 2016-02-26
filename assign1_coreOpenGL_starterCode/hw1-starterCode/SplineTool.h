@@ -8,6 +8,41 @@ struct Point
 	double x;
 	double y;
 	double z;
+
+	Point(double nx, double ny, double nz)
+	{
+		x = nx;
+		y = ny;
+		z = nz;
+	}
+
+	Point operator +(const Point& p)
+	{
+		return Point(p.x + x, p.y + y, p.z + z);
+	}
+};
+
+Point operator* (const Point& lhs, double scalar)
+{
+	return Point(lhs.x*scalar, lhs.y*scalar, lhs.z*scalar);
+}
+
+struct Point4
+{
+	double x;
+	double y;
+	double z;
+	double w;
+
+	Point4(){ }
+
+	Point4(double nx, double ny, double nz, double nw)
+	{
+		x = nx;
+		y = ny;
+		z = nz;
+		w = nw;
+	}
 };
 
 // spline struct 
@@ -17,6 +52,20 @@ struct Spline
 	int numControlPoints;
 	Point * points;
 };
+
+// Give 4 control points and return the position of the calculated point.
+Point CatmullRomAlgorithm(double u, const Point4& b1, const Point4& b2, const Point4& b3, const Point4& b4,
+											const Point& c1, const Point& c2, const Point& c3, const Point& c4)
+{
+	// Crazy ass expansion of a (1x4) + (4x4) * (4x3)
+	Point point = (c1 * b1.x + c2 * b1.y + c3 * b1.z + c4 * b1.w) * (u * u * u)
+				+ (c1 * b2.x + c2 * b2.y + c3 * b2.z + c4 * b2.w) * (u * u)
+				+ (c1 * b3.x + c2 * b3.y + c3 * b3.z + c4 * b3.w) * u
+				+ (c1 * b4.x + c2 * b4.y + c3 * b4.z + c4 * b4.w);
+	point = point;
+
+	return point;
+}
 
 int loadSplines(char * argv, Spline** splines, int& numSplines)
 {
