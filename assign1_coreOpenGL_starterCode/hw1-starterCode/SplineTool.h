@@ -150,3 +150,5 @@ void initSpline(int argc, char ** argv, Spline** splines, int& numSplines)
 		printf("Num control points in spline %d: %d.\n", i, (*splines)[i].numControlPoints);
 }
 
+
+

@@ -41,7 +41,6 @@ void initMap3D();
 void initTerrainVertices();
 void initTerrainColors();
 void initTerrainIndices();
-void initArrays();
 void initBuffers();
 void initPipelineProgram();
 void bindProgram();
@@ -49,9 +48,15 @@ void bindProjectionMatrixToProgram();
 void bindAndDrawVertexToProgram();
 
 // hw2
+void initTerrain();
+void initSpline();
 void initSplineBuffers();
+void initTerrainBuffers();
+void initTerrainTexture();
 void generateBasisVector();
-void generatePoints(int controlPoints);
+void generateSplinePoints(int controlPoints);
+void drawSpline();
+void drawGround();
 
 void displayFunc();
 void idleFunc();
@@ -93,9 +98,12 @@ const float CAMERA_HEIGHT = 1.0f;
 const float CAMERA_DEPTH = 1.0f;
 const float MAX_COLOR = 255.0f;
 
-GLuint vertexBuffer;
+GLuint splineVertexBuffer;
+GLuint terrainVertexBuffer;
 GLuint indexBuffer;
-GLuint vertexArray;
+GLuint splineArray;
+GLuint terrainArray;
+
 
 int oldTime = 0; /* Calculates delta time. */
 float idleRotationSpeed = 0.025f;
@@ -120,6 +128,16 @@ std::vector<Point> splinePoints;
 Point4 catmullBasis[4];
 const double sTensionParameter = 0.5;
 const double uStepSize = 0.01;
+
+float terrainVertices[6][3] =
+{
+	{ -1, 0, -1 },
+	{ -1, 0, 1 },
+	{ 1, 0, -1 },
+	{ 1, 0, 1 },
+	{ 2, 0, -1 },
+	{ 2, 0, 1}
+};
 
 int main(int argc, char *argv[])
 {
@@ -167,8 +185,12 @@ int main(int argc, char *argv[])
 	initScene();
 	
 	// hw2
+	initSpline();
 	initSpline(argc, argv, &splines, numSplines);
 	initSplineBuffers();
+
+	initTerrain();
+	initTerrainBuffers();
 
 	// sink forever into the glut loop
 	glutMainLoop();
@@ -201,18 +223,26 @@ void initScene()
 	initPipelineProgram();
 }
 
-void initArrays()
+void initPipelineProgram()
 {
-	/*
-		GLuint vertexArray;
-	*/
-	glGenVertexArrays(1, &vertexArray);
-	glBindVertexArray(vertexArray);
+	if (pipelineProgram != nullptr) delete pipelineProgram;
+	pipelineProgram = new BasicPipelineProgram();
+	pipelineProgram->Init("../openGLHelper-starterCode");
+}
+
+void initSpline()
+{
+
+}
+
+void initTerrain()
+{
+
 }
 
 void initSplineBuffers()
 {
-	generatePoints(splines[0].numControlPoints);
+	generateSplinePoints(splines[0].numControlPoints);
 
 	/*
 	Index Array
@@ -221,7 +251,7 @@ void initSplineBuffers()
 
 	wireFrameIndex.reserve(1000);
 	wireFrameIndex.push_back(0);
-	for (int i = 1; i < splinePoints.size(); ++i)
+	for (unsigned i = 1; i < splinePoints.size(); ++i)
 	{
 		wireFrameIndex.push_back(i);
 		wireFrameIndex.push_back(i);
@@ -231,8 +261,8 @@ void initSplineBuffers()
 	/*
 		GLuint vertexBuffer (vec3);
 	*/
-	glGenBuffers(1, &vertexBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+	glGenBuffers(1, &splineVertexBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, splineVertexBuffer);
 	glBufferData(GL_ARRAY_BUFFER, splinePoints.size() * sizeof(Point), &splinePoints[0], GL_STATIC_DRAW);	
 
 	glGenBuffers(1, &indexBuffer);
@@ -240,12 +270,24 @@ void initSplineBuffers()
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, wireFrameIndex.size() * sizeof(unsigned int), &wireFrameIndex[0], GL_STATIC_DRAW);
 }
 
-void generatePoints(int controlPoints)
+void initTerrainBuffers()
+{
+	glGenBuffers(1, &terrainVertexBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, terrainVertexBuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(terrainVertices), terrainVertices, GL_STATIC_DRAW);
+}
+
+void initTerrainTextures()
+{
+
+}
+
+void generateSplinePoints(int controlPoints)
 {
 	generateBasisVector();
-
 	splinePoints.reserve(controlPoints * (int)(1.0 / uStepSize));
 
+	// Generate the points on the spline.
 	for (int i = 0; i < controlPoints - 3; ++i)
 	{
 		for (double u = 0.0; u <= 1.0; u += uStepSize)
@@ -260,6 +302,7 @@ void generatePoints(int controlPoints)
 
 void generateBasisVector()
 {
+	// Basis vector is used to generate the spline.
 	const double s = sTensionParameter;
 	catmullBasis[0] = Point4(-s, 2 - s, s - 2, s);
 	catmullBasis[1] = Point4(2*s, s-3, 3-2*s, -s);
@@ -267,19 +310,12 @@ void generateBasisVector()
 	catmullBasis[3] = Point4(0, 1, 0, 0);
 }
 
-void initPipelineProgram()
-{
-	if (pipelineProgram != nullptr) delete pipelineProgram;
-	pipelineProgram = new BasicPipelineProgram();
-	pipelineProgram->Init("../openGLHelper-starterCode");
-}
-
 void displayFunc()
 {
-	// render some stuff...
 	glClear(GL_COLOR_BUFFER_BIT |
 		GL_DEPTH_BUFFER_BIT);
 	matrix->LoadIdentity();
+	// Camera controls:
 	matrix->LookAt(0, CAMERA_HEIGHT + camZoom[2], CAMERA_DEPTH + camZoom[2], 0, 0, 0, 0, 1, 0);
 	matrix->Translate(camTranslate[0], camTranslate[1], 0);
 	matrix->Rotate(camRotate[0], 1, 0, 0);
@@ -309,25 +345,42 @@ void bindProjectionMatrixToProgram()
 
 void bindAndDrawVertexToProgram()
 {
+	drawSpline();
+	drawGround();
+}
+
+void drawSpline()
+{
+	/*
+	GLuint vertexArray;
+	*/
+	glGenVertexArrays(1, &splineArray);
+	glBindVertexArray(splineArray);
 	// Attribute 1: Position
 	GLuint attrib_pos = glGetAttribLocation(program, "position");
 	glEnableVertexAttribArray(attrib_pos);
-	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, splineVertexBuffer);
 	glVertexAttribPointer(attrib_pos, 3, GL_DOUBLE, GL_FALSE, 0, (void*)0);
 
-	// Draw
-	switch (drawState)
-	{
-	case DRAW_STATE::DS_POINT:
-		glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-		glDrawArrays(GL_POINTS, 0, splines[0].numControlPoints);
-		break;
+	// Draw Indexed
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+	glDrawElements(GL_LINES, wireFrameIndex.size(), GL_UNSIGNED_INT, (void*)0);
+	glBindVertexArray(0);
+}
 
-	case DRAW_STATE::DS_WIRE:
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
-		glDrawElements(GL_LINES, wireFrameIndex.size(), GL_UNSIGNED_INT, (void*)0);
-		break;
-	}
+void drawGround()
+{
+	/*
+	GLuint vertexArray;
+	*/
+	glGenVertexArrays(1, &terrainArray);
+	glBindVertexArray(terrainArray);
+	// Attribute 1: Position
+	GLuint attrib_pos = glGetAttribLocation(program, "position");
+	glEnableVertexAttribArray(attrib_pos);
+	glBindBuffer(GL_ARRAY_BUFFER, terrainVertexBuffer);
+	glVertexAttribPointer(attrib_pos, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 6);
 	glBindVertexArray(0);
 }
 
@@ -384,7 +437,6 @@ void reshapeFunc(int w, int h)
 void mouseMotionDragFunc(int x, int y)
 {
 	// mouse has moved and one of the mouse buttons is pressed (dragging)
-
 	// the change in mouse position since the last invocation of this function
 	int mousePosDelta[2] = { x - mousePos[0], y - mousePos[1] };
 
@@ -474,6 +526,10 @@ void keyboardFunc(unsigned char key, int x, int y)
 
 	case 'p':
 		startScreenshotRecording = !startScreenshotRecording;
+		break;
+	
+	case 'x':
+		saveScreenshot("screenshot.jpg");
 		break;
 	}
 }

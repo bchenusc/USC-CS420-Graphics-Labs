@@ -1,9 +1,9 @@
 #version 150
 
-in vec3 position;
-in vec4 color;
+in vec3 position; // Input vertex position
+in vec2 texCoord; // Input texture coordinates
 
-out vec4 col;
+out vec2 tc; // Output texture coordinates
 
 uniform mat4 projectionModelViewMatrix;
 
@@ -14,6 +14,6 @@ void main()
   // students need to implement this
   
   gl_Position = projectionModelViewMatrix * vec4(position, 1.0f);
-  col = vec4(0,255,0, 1);
+  tc = texCoord;
 }
 

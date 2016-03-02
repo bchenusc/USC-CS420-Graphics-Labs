@@ -27,6 +27,7 @@
     <ClInclude Include="..\openGLHelper-starterCode\pipelineProgram.h" />
     <ClInclude Include="HeightmapTool.h" />
     <ClInclude Include="SplineTool.h" />
+    <ClInclude Include="Terrain.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\openGLHelper-starterCode\basic.fragmentShader.glsl" />
