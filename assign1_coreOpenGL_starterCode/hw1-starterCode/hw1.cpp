@@ -103,6 +103,7 @@ GLuint splineVertexBuffer;
 GLuint splineIndexBuffer;
 GLuint terrainVertexBuffer;
 GLuint terrainTextureBuffer;
+GLuint textHandle;
 
 GLuint splineArray;
 GLuint terrainArray;
@@ -133,10 +134,18 @@ const double uStepSize = 0.01;
 
 float terrainVertices[4][3] =
 {
-	{ -1, -1, -1 },
-	{ -1, -1, 1 },
-	{ 1, -1, -1 },
-	{ 1, -1, 1 },
+	{ -256, -10, -256 },
+	{ -256, -10, 256 },
+	{ 256, -10, 256 },
+	{ 256, -10, -256 },
+};
+
+float terrainTexCoord[4][2] =
+{
+	{0,0},
+	{0,1},
+	{1,1},
+	{1,0}
 };
 
 int main(int argc, char *argv[])
@@ -298,7 +307,7 @@ void initTerrain()
 void initTerrainTextures()
 {
 	glGenTextures(1, &terrainTextureBuffer);
-	int code = initTexture("./Hw2Textures/ground.jpg", terrainTextureBuffer);
+	int code = initTexture("./Hw2Textures/ground.jpg", textHandle);
 	if (code != 0)
 	{
 		printf("Error loading the texture image. \n");
@@ -311,6 +320,11 @@ void initTerrainBuffers()
 	glGenBuffers(1, &terrainVertexBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, terrainVertexBuffer);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(terrainVertices), terrainVertices, GL_STATIC_DRAW);
+
+	glGenBuffers(1, &terrainTextureBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, terrainTextureBuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(terrainTexCoord), terrainTexCoord, GL_STATIC_DRAW);
+
 }
 
 void displayFunc()
@@ -326,7 +340,7 @@ void displayFunc()
 	matrix->Rotate(camRotate[2], 0, 0, 1);
 
 	setTextureUnit(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, terrainTextureBuffer);
+	glBindTexture(GL_TEXTURE_2D, textHandle);
 	
 	bindProgram();
 	glutSwapBuffers();
@@ -401,10 +415,10 @@ void drawGround()
 	GLuint attrib_tex = glGetAttribLocation(program, "texCoord");
 	glEnableVertexAttribArray(attrib_tex);
 	// bind the texture
-	glBindTexture(GL_TEXTURE_2D, terrainTextureBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, terrainTextureBuffer);
 	glVertexAttribPointer(attrib_tex, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	glDrawArrays(GL_QUADS, 0, 4);
 	glBindVertexArray(0);
 }
 
