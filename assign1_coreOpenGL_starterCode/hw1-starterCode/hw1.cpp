@@ -18,6 +18,7 @@
 #include <sstream>
 #include <iomanip>
 #include "SplineTool.h"
+#include "Terrain.h"
 
 #ifdef WIN32
   #ifdef _DEBUG
@@ -49,14 +50,14 @@ void bindAndDrawVertexToProgram();
 
 // hw2
 void initTerrain();
-void initSpline();
 void initSplineBuffers();
 void initTerrainBuffers();
-void initTerrainTexture();
+void initTerrainTextures();
 void generateBasisVector();
 void generateSplinePoints(int controlPoints);
 void drawSpline();
 void drawGround();
+void setTextureUnit(GLint unit);
 
 void displayFunc();
 void idleFunc();
@@ -99,11 +100,12 @@ const float CAMERA_DEPTH = 1.0f;
 const float MAX_COLOR = 255.0f;
 
 GLuint splineVertexBuffer;
+GLuint splineIndexBuffer;
 GLuint terrainVertexBuffer;
-GLuint indexBuffer;
+GLuint terrainTextureBuffer;
+
 GLuint splineArray;
 GLuint terrainArray;
-
 
 int oldTime = 0; /* Calculates delta time. */
 float idleRotationSpeed = 0.025f;
@@ -111,7 +113,7 @@ bool allowIdleScreenCapture = false;
 
 float rotateSensitivity = 0.05f;
 float translateSensitivity = 0.025f;
-float zoomSensitivity = 0.05f; 
+float zoomSensitivity = 0.025f; 
 float scaleSensitivity = 0.01f;
 
 int screenshotCounter = 0;
@@ -129,14 +131,12 @@ Point4 catmullBasis[4];
 const double sTensionParameter = 0.5;
 const double uStepSize = 0.01;
 
-float terrainVertices[6][3] =
+float terrainVertices[4][3] =
 {
-	{ -1, 0, -1 },
-	{ -1, 0, 1 },
-	{ 1, 0, -1 },
-	{ 1, 0, 1 },
-	{ 2, 0, -1 },
-	{ 2, 0, 1}
+	{ -1, -1, -1 },
+	{ -1, -1, 1 },
+	{ 1, -1, -1 },
+	{ 1, -1, 1 },
 };
 
 int main(int argc, char *argv[])
@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
 	if (argc != 2)
 	{
 		cout << "The arguments are incorrect." << endl;
-		cout << "usage: ./hw1 <heightmap file>" << endl;
+		cout << "usage: ./hw1 <track file>" << endl;
 		exit(EXIT_FAILURE);
 	}
 
@@ -185,12 +185,10 @@ int main(int argc, char *argv[])
 	initScene();
 	
 	// hw2
-	initSpline();
 	initSpline(argc, argv, &splines, numSplines);
 	initSplineBuffers();
 
 	initTerrain();
-	initTerrainBuffers();
 
 	// sink forever into the glut loop
 	glutMainLoop();
@@ -230,16 +228,6 @@ void initPipelineProgram()
 	pipelineProgram->Init("../openGLHelper-starterCode");
 }
 
-void initSpline()
-{
-
-}
-
-void initTerrain()
-{
-
-}
-
 void initSplineBuffers()
 {
 	generateSplinePoints(splines[0].numControlPoints);
@@ -259,28 +247,18 @@ void initSplineBuffers()
 	wireFrameIndex.push_back(splinePoints.size() - 1);
 
 	/*
-		GLuint vertexBuffer (vec3);
+	GLuint vertexBuffer (vec3);
 	*/
 	glGenBuffers(1, &splineVertexBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, splineVertexBuffer);
-	glBufferData(GL_ARRAY_BUFFER, splinePoints.size() * sizeof(Point), &splinePoints[0], GL_STATIC_DRAW);	
+	glBufferData(GL_ARRAY_BUFFER, splinePoints.size() * sizeof(Point), &splinePoints[0], GL_STATIC_DRAW);
 
-	glGenBuffers(1, &indexBuffer);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+	glGenBuffers(1, &splineIndexBuffer);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, splineIndexBuffer);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, wireFrameIndex.size() * sizeof(unsigned int), &wireFrameIndex[0], GL_STATIC_DRAW);
 }
 
-void initTerrainBuffers()
-{
-	glGenBuffers(1, &terrainVertexBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, terrainVertexBuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(terrainVertices), terrainVertices, GL_STATIC_DRAW);
-}
 
-void initTerrainTextures()
-{
-
-}
 
 void generateSplinePoints(int controlPoints)
 {
@@ -305,9 +283,34 @@ void generateBasisVector()
 	// Basis vector is used to generate the spline.
 	const double s = sTensionParameter;
 	catmullBasis[0] = Point4(-s, 2 - s, s - 2, s);
-	catmullBasis[1] = Point4(2*s, s-3, 3-2*s, -s);
+	catmullBasis[1] = Point4(2 * s, s - 3, 3 - 2 * s, -s);
 	catmullBasis[2] = Point4(-s, 0, s, 0);
 	catmullBasis[3] = Point4(0, 1, 0, 0);
+}
+
+
+void initTerrain()
+{
+	initTerrainTextures();
+	initTerrainBuffers();
+}
+
+void initTerrainTextures()
+{
+	glGenTextures(1, &terrainTextureBuffer);
+	int code = initTexture("./Hw2Textures/ground.jpg", terrainTextureBuffer);
+	if (code != 0)
+	{
+		printf("Error loading the texture image. \n");
+		exit(EXIT_FAILURE);
+	}
+}
+
+void initTerrainBuffers()
+{
+	glGenBuffers(1, &terrainVertexBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, terrainVertexBuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(terrainVertices), terrainVertices, GL_STATIC_DRAW);
 }
 
 void displayFunc()
@@ -321,9 +324,20 @@ void displayFunc()
 	matrix->Rotate(camRotate[0], 1, 0, 0);
 	matrix->Rotate(camRotate[1], 0, 1, 0);
 	matrix->Rotate(camRotate[2], 0, 0, 1);
+
+	setTextureUnit(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, terrainTextureBuffer);
 	
 	bindProgram();
 	glutSwapBuffers();
+}
+
+void setTextureUnit(GLint unit)
+{
+	glActiveTexture(unit); // select the active texture unit.
+	//get a handle to the "textureImage" shader variable
+	GLint h_textureImage = glGetUniformLocation(program, "TextureImage");
+	glUniform1i(h_textureImage, unit - GL_TEXTURE);
 }
 
 void bindProgram()
@@ -363,7 +377,8 @@ void drawSpline()
 	glVertexAttribPointer(attrib_pos, 3, GL_DOUBLE, GL_FALSE, 0, (void*)0);
 
 	// Draw Indexed
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, splineIndexBuffer);
+	glBindTexture(GL_TEXTURE_2D, 0);
 	glDrawElements(GL_LINES, wireFrameIndex.size(), GL_UNSIGNED_INT, (void*)0);
 	glBindVertexArray(0);
 }
@@ -375,12 +390,21 @@ void drawGround()
 	*/
 	glGenVertexArrays(1, &terrainArray);
 	glBindVertexArray(terrainArray);
+	
 	// Attribute 1: Position
 	GLuint attrib_pos = glGetAttribLocation(program, "position");
 	glEnableVertexAttribArray(attrib_pos);
 	glBindBuffer(GL_ARRAY_BUFFER, terrainVertexBuffer);
 	glVertexAttribPointer(attrib_pos, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 6);
+
+	// Attribute 2: Texture
+	GLuint attrib_tex = glGetAttribLocation(program, "texCoord");
+	glEnableVertexAttribArray(attrib_tex);
+	// bind the texture
+	glBindTexture(GL_TEXTURE_2D, terrainTextureBuffer);
+	glVertexAttribPointer(attrib_tex, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	glBindVertexArray(0);
 }
 

@@ -1,4 +1,5 @@
-﻿#include "pipelineProgram.h"
+﻿#pragma once
+#include "pipelineProgram.h"
 
 class BasicPipelineProgram : public PipelineProgram
 {
