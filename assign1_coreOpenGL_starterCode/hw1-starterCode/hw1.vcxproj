@@ -26,6 +26,7 @@
     <ClInclude Include="..\openGLHelper-starterCode\openGLMatrix.h" />
     <ClInclude Include="..\openGLHelper-starterCode\pipelineProgram.h" />
     <ClInclude Include="HeightmapTool.h" />
+    <ClInclude Include="Sky.h" />
     <ClInclude Include="SplineTool.h" />
     <ClInclude Include="Terrain.h" />
   </ItemGroup>

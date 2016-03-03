@@ -19,6 +19,7 @@
 #include <iomanip>
 #include "SplineTool.h"
 #include "Terrain.h"
+#include "Sky.h"
 
 #ifdef WIN32
   #ifdef _DEBUG
@@ -49,10 +50,10 @@ void bindProjectionMatrixToProgram();
 void bindAndDrawVertexToProgram();
 
 // hw2
-void initTerrain();
+void initGround();
 void initSplineBuffers();
-void initTerrainBuffers();
-void initTerrainTextures();
+void initGroundBuffers();
+void initGroundTextures();
 void generateBasisVector();
 void generateSplinePoints(int controlPoints);
 void drawSpline();
@@ -132,6 +133,8 @@ Point4 catmullBasis[4];
 const double sTensionParameter = 0.5;
 const double uStepSize = 0.01;
 
+Sky* sky;
+
 float terrainVertices[4][3] =
 {
 	{ -256, -10, -256 },
@@ -197,7 +200,9 @@ int main(int argc, char *argv[])
 	initSpline(argc, argv, &splines, numSplines);
 	initSplineBuffers();
 
-	initTerrain();
+	initGround();
+	sky = new Sky(program);
+	sky->initSky();
 
 	// sink forever into the glut loop
 	glutMainLoop();
@@ -298,15 +303,14 @@ void generateBasisVector()
 }
 
 
-void initTerrain()
+void initGround()
 {
-	initTerrainTextures();
-	initTerrainBuffers();
+	initGroundTextures();
+	initGroundBuffers();
 }
 
-void initTerrainTextures()
+void initGroundTextures()
 {
-	glGenTextures(1, &terrainTextureBuffer);
 	int code = initTexture("./Hw2Textures/ground.jpg", textHandle);
 	if (code != 0)
 	{
@@ -315,7 +319,7 @@ void initTerrainTextures()
 	}
 }
 
-void initTerrainBuffers()
+void initGroundBuffers()
 {
 	glGenBuffers(1, &terrainVertexBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, terrainVertexBuffer);
@@ -340,8 +344,7 @@ void displayFunc()
 	matrix->Rotate(camRotate[2], 0, 0, 1);
 
 	setTextureUnit(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, textHandle);
-	
+
 	bindProgram();
 	glutSwapBuffers();
 }
@@ -375,6 +378,7 @@ void bindAndDrawVertexToProgram()
 {
 	drawSpline();
 	drawGround();
+	sky->draw();
 }
 
 void drawSpline()
@@ -418,6 +422,7 @@ void drawGround()
 	glBindBuffer(GL_ARRAY_BUFFER, terrainTextureBuffer);
 	glVertexAttribPointer(attrib_tex, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
+	glBindTexture(GL_TEXTURE_2D, textHandle);
 	glDrawArrays(GL_QUADS, 0, 4);
 	glBindVertexArray(0);
 }
