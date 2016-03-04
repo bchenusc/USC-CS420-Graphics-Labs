@@ -41,9 +41,10 @@ void initHandlers();
 void initPipelineProgram();
 void bindProgram();
 void bindProjectionMatrixToProgram();
-void drawScene();
+void drawActors();
 
 // hw2
+void initActors();
 void initGround();
 void initGroundBuffers();
 void initGroundTextures();
@@ -58,7 +59,8 @@ void reshapeFunc(int w, int h);
 void saveScreenshot(const char* filename);
 
 // Camera
-float camLookat[3] = { 0.0f, 0.0f, 0.0f };
+float camLookAtEye[3] = { 0.0f, 0.0f, 0.0f };
+float camLookAtTarget[3] = { 0.0f, 0.0f, 0.0f };
 
 int windowWidth = 1280;
 int windowHeight = 720;
@@ -97,13 +99,13 @@ bool startScreenshotRecording = false;
 // Hw2
 
 
-int coasterTangentCounter = 0;
+int coasterStep = 0;
 const float coasterMoveSpeed = 0.001f;
 float coasterMoveCounter = 0;
 
 
 
-//Sky* sky;
+SplineActor splineActor;
 
 float terrainVertices[4][3] =
 {
@@ -167,12 +169,8 @@ int main(int argc, char *argv[])
 	initScene();
 	
 	// hw2
-	initSpline(argc, argv, &splines, splineNums);
-	splineInitBuffers();
-
-	initGround();
-	//sky = new Sky(program);
-	//sky->initSky();
+	initSpline(argc, argv, &splineActor.splines, splineActor.splineNums);
+	initActors();
 
 	// sink forever into the glut loop
 	glutMainLoop();
@@ -199,17 +197,18 @@ void initScene()
 	initPipelineProgram();
 }
 
+void initActors()
+{
+	splineActor.Init();
+	initGround();
+}
+
 void initPipelineProgram()
 {
 	if (pipelineProgram != nullptr) delete pipelineProgram;
 	pipelineProgram = new BasicPipelineProgram();
 	pipelineProgram->Init("../openGLHelper-starterCode");
 }
-
-
-
-
-
 
 void initGround()
 {
@@ -244,20 +243,28 @@ void displayFunc()
 	glClear(GL_COLOR_BUFFER_BIT |
 		GL_DEPTH_BUFFER_BIT);
 	matrix->LoadIdentity();
-	// Camera controls:
+
+	// Camera Normals
+	float normalX = (float)splineActor.normals[coasterStep].x;
+	float normalY = (float)splineActor.normals[coasterStep].y;
+	float normalZ = (float)splineActor.normals[coasterStep].z;
+
+	// Camera Look targets.
+	camLookAtTarget[0] = camLookAtEye[0] + normalX - (float)splineActor.tangents[coasterStep].x * 4.0f;
+	camLookAtTarget[1] = camLookAtEye[1] + normalY - (float)splineActor.tangents[coasterStep].y * 4.0f;
+	camLookAtTarget[2] = camLookAtEye[2] + normalZ - (float)splineActor.tangents[coasterStep].z * 4.0f;
 
 	matrix->LookAt(
-		camLookat[0],
-		camLookat[1],
-		camLookat[2], camLookat[0] + -splineTangents[coasterTangentCounter].x * 4.0f, 
-		camLookat[1] - splineTangents[coasterTangentCounter].y * 4.0f,
-		camLookat[2] + -splineTangents[coasterTangentCounter].z * 4.0f,
-		splineNormals[coasterTangentCounter].x, 
-		splineNormals[coasterTangentCounter].y, splineNormals[coasterTangentCounter].z);
+		camLookAtEye[0] + normalX, camLookAtEye[1] + normalY, camLookAtEye[2] + normalZ,
+		camLookAtTarget[0], camLookAtTarget[1], camLookAtTarget[2],
+		normalX, normalY, normalZ);
 
 	setTextureUnit(GL_TEXTURE0);
 
+	// Actors
 	bindProgram();
+	drawActors();
+
 	glutSwapBuffers();
 }
 
@@ -274,7 +281,7 @@ void bindProgram()
 	pipelineProgram->Bind();
 	program = pipelineProgram->GetProgramHandle();
 	bindProjectionMatrixToProgram();
-	drawScene();
+	drawActors();
 }
 
 void bindProjectionMatrixToProgram()
@@ -286,11 +293,10 @@ void bindProjectionMatrixToProgram()
 	glUniformMatrix4fv(h_modelViewMatrix, 1, GL_FALSE, m);
 }
 
-void drawScene()
+void drawActors()
 {
-	drawSpline(program);
+	splineActor.Draw(program);
 	drawGround();
-	//sky->draw();
 }
 
 
@@ -331,17 +337,17 @@ void idleFunc()
 	if (coasterMoveCounter <= 0)
 	{
 		coasterMoveCounter = coasterMoveSpeed + coasterMoveCounter;
-		camLookat[0] = splinePoints[coasterTangentCounter].x;
-		camLookat[1] = splinePoints[coasterTangentCounter].y;
-		camLookat[2] = splinePoints[coasterTangentCounter].z;
+		camLookAtEye[0] = (float)splineActor.points[coasterStep].x;
+		camLookAtEye[1] = (float)splineActor.points[coasterStep].y;
+		camLookAtEye[2] = (float)splineActor.points[coasterStep].z;
 		
-		if (coasterTangentCounter > 0)
+		if (coasterStep > 0)
 		{
-			--coasterTangentCounter;
+			--coasterStep;
 		}
 		else
 		{
-			coasterTangentCounter = splineTangents.size() - 1;
+			coasterStep = splineActor.tangents.size() - 1;
 		}
 
 	}

@@ -80,6 +80,9 @@
     <ClInclude Include="Spline.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Actor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\openGLHelper-starterCode\basic.fragmentShader.glsl">
