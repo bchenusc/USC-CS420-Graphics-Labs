@@ -34,7 +34,7 @@
 
   In order to enable PNG, JPEG or TIFF, uncomment the corresponding line in imageFormats.h, and link against the external library.
 */
-
+#pragma once
 #ifndef _IMAGEIO_H_
 #define _IMAGEIO_H_
 

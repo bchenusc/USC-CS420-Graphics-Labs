@@ -1,3 +1,4 @@
+#pragma once
 #ifndef _OPENGLHEADER_H_
 #define _OPENGLHEADER_H_
 

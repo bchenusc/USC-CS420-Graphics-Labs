@@ -27,10 +27,11 @@
     <ClInclude Include="..\openGLHelper-starterCode\pipelineProgram.h" />
     <ClInclude Include="Actor.h" />
     <ClInclude Include="Camera.h" />
-    <ClInclude Include="HeightmapTool.h" />
+    <ClInclude Include="PlaneActor.h" />
+    <ClInclude Include="PlanePlacements.h" />
     <ClInclude Include="Point.h" />
     <ClInclude Include="Sky.h" />
-    <ClInclude Include="Spline.h" />
+    <ClInclude Include="SplineActor.h" />
     <ClInclude Include="SplineTool.h" />
     <ClInclude Include="Textures.h" />
   </ItemGroup>

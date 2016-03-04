@@ -1,3 +1,4 @@
+#pragma once
 #ifndef _GLUT_HEADER_H_
 #define _GLUT_HEADER_H_
 

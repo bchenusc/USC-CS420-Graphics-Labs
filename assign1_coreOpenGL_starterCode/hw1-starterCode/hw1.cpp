@@ -4,35 +4,38 @@
   C++ starter code
 
   Student username: <type your USC username here>
-*/
+  */
 
 #include <iostream>
 #include <cstring>
-#include "openGLHeader.h"
-#include "glutHeader.h"
-
-#include "imageIO.h"
-#include "openGLMatrix.h"
-#include "basicPipelineProgram.h"
 #include <vector>
 #include <sstream>
 #include <iomanip>
+
+#include "openGLHeader.h"
+#include "glutHeader.h"
+#include "imageIO.h"
+#include "openGLMatrix.h"
+#include "basicPipelineProgram.h"
+
 #include "SplineTool.h"
+#include "PlaneActor.h"
+#include "PlanePlacements.h"
+#include "SplineActor.h"
 #include "Textures.h"
-#include "Spline.h"
 
 #ifdef WIN32
-  #ifdef _DEBUG
-    #pragma comment(lib, "glew32d.lib")
-  #else
-    #pragma comment(lib, "glew32.lib")
-  #endif
+#ifdef _DEBUG
+#pragma comment(lib, "glew32d.lib")
+#else
+#pragma comment(lib, "glew32.lib")
+#endif
 #endif
 
 #ifdef WIN32
-  char shaderBasePath[1024] = SHADER_BASE_PATH;
+char shaderBasePath[1024] = SHADER_BASE_PATH;
 #else
-  char shaderBasePath[1024] = "../openGLHelper";
+char shaderBasePath[1024] = "../openGLHelper";
 #endif
 
 using namespace std;
@@ -41,15 +44,10 @@ void initHandlers();
 void initPipelineProgram();
 void bindProgram();
 void bindProjectionMatrixToProgram();
-void drawActors();
 
 // hw2
 void initActors();
-void initGround();
-void initGroundBuffers();
-void initGroundTextures();
-void drawGround();
-void setTextureUnit(GLint unit);
+void drawActors();
 
 void displayFunc();
 void idleFunc();
@@ -73,22 +71,12 @@ OpenGLMatrix* matrix;
 BasicPipelineProgram* pipelineProgram;
 GLuint program;
 
-// VBO Handles
-
-GLuint groundVertexHandle;
-GLuint groundTexCoordHandle;
-GLuint groundTexHandle;
-
-// VAO Handles
-
-GLuint groundVAOHandle;
-
 int oldTime = 0; /* Calculates delta time. */
 float idleRotationSpeed = 0.025f;
 bool allowIdleScreenCapture = false;
 
 float rotateSensitivity = 0.05f;
-float zoomSensitivity = 0.025f; 
+float zoomSensitivity = 0.025f;
 float scaleSensitivity = 0.01f;
 
 int screenshotCounter = 0;
@@ -96,32 +84,17 @@ float screenshotDelayCounter = 0;
 const float screenshotDelay = 0.0666f;
 bool startScreenshotRecording = false;
 
-// Hw2
-
-
 int coasterStep = 0;
 const float coasterMoveSpeed = 0.001f;
 float coasterMoveCounter = 0;
 
-
-
 SplineActor splineActor;
-
-float terrainVertices[4][3] =
-{
-	{ -256, -10, -256 },
-	{ -256, -10, 256 },
-	{ 256, -10, 256 },
-	{ 256, -10, -256 },
-};
-
-float terrainTexCoord[4][2] =
-{
-	{0,0},
-	{0,1},
-	{1,1},
-	{1,0}
-};
+PlaneActor groundActor("./Hw2Textures/ground.jpg", groundVertices);
+PlaneActor skyTopActor("./Hw2Textures/sky.jpg", skyTopVertices);
+PlaneActor skyHorizlActor1("./Hw2Textures/sky.jpg", skyHorizVerts1);
+PlaneActor skyHorizlActor2("./Hw2Textures/sky.jpg", skyHorizVerts1);
+PlaneActor skyHorizlActor3("./Hw2Textures/sky.jpg", skyHorizVerts1);
+PlaneActor skyHorizlActor4("./Hw2Textures/sky.jpg", skyHorizVerts1);
 
 int main(int argc, char *argv[])
 {
@@ -136,11 +109,11 @@ int main(int argc, char *argv[])
 	glutInit(&argc, argv);
 
 	cout << "Initializing OpenGL..." << endl;
-	#ifdef __APPLE__
+#ifdef __APPLE__
 	glutInitDisplayMode(GLUT_3_2_CORE_PROFILE | GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH | GLUT_STENCIL);
-	#else
+#else
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH | GLUT_STENCIL);
-	#endif
+#endif
 
 	glutInitWindowSize(windowWidth, windowHeight);
 	glutInitWindowPosition(0, 0);
@@ -153,9 +126,9 @@ int main(int argc, char *argv[])
 	initHandlers();
 
 	// init glew
-	#ifdef __APPLE__
+#ifdef __APPLE__
 	// nothing is needed on Apple
-	#else
+#else
 	// Windows, Linux
 	GLint result = glewInit();
 	if (result != GLEW_OK)
@@ -163,11 +136,11 @@ int main(int argc, char *argv[])
 		cout << "error: " << glewGetErrorString(result) << endl;
 		exit(EXIT_FAILURE);
 	}
-	#endif
+#endif
 
 	// do initialization
 	initScene();
-	
+
 	// hw2
 	initSpline(argc, argv, &splineActor.splines, splineActor.splineNums);
 	initActors();
@@ -200,7 +173,23 @@ void initScene()
 void initActors()
 {
 	splineActor.Init();
-	initGround();
+	groundActor.Init();
+	skyTopActor.Init();
+	skyHorizlActor1.Init();
+	skyHorizlActor2.Init();
+	skyHorizlActor3.Init();
+	skyHorizlActor4.Init();
+}
+
+void drawActors()
+{
+	splineActor.Draw(program);
+	groundActor.Draw(program);
+	skyTopActor.Draw(program);
+	skyHorizlActor1.Draw(program);
+	skyHorizlActor2.Draw(program);
+	skyHorizlActor3.Draw(program);
+	skyHorizlActor4.Draw(program);
 }
 
 void initPipelineProgram()
@@ -208,34 +197,6 @@ void initPipelineProgram()
 	if (pipelineProgram != nullptr) delete pipelineProgram;
 	pipelineProgram = new BasicPipelineProgram();
 	pipelineProgram->Init("../openGLHelper-starterCode");
-}
-
-void initGround()
-{
-	initGroundTextures();
-	initGroundBuffers();
-}
-
-void initGroundTextures()
-{
-	int code = initTexture("./Hw2Textures/ground.jpg", groundTexHandle);
-	if (code != 0)
-	{
-		printf("Error loading the texture image. \n");
-		exit(EXIT_FAILURE);
-	}
-}
-
-void initGroundBuffers()
-{
-	glGenBuffers(1, &groundVertexHandle);
-	glBindBuffer(GL_ARRAY_BUFFER, groundVertexHandle);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(terrainVertices), terrainVertices, GL_STATIC_DRAW);
-
-	glGenBuffers(1, &groundTexCoordHandle);
-	glBindBuffer(GL_ARRAY_BUFFER, groundTexCoordHandle);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(terrainTexCoord), terrainTexCoord, GL_STATIC_DRAW);
-
 }
 
 void displayFunc()
@@ -259,21 +220,11 @@ void displayFunc()
 		camLookAtTarget[0], camLookAtTarget[1], camLookAtTarget[2],
 		normalX, normalY, normalZ);
 
-	setTextureUnit(GL_TEXTURE0);
-
 	// Actors
 	bindProgram();
 	drawActors();
 
 	glutSwapBuffers();
-}
-
-void setTextureUnit(GLint unit)
-{
-	glActiveTexture(unit); // select the active texture unit.
-	//get a handle to the "textureImage" shader variable
-	GLint h_textureImage = glGetUniformLocation(program, "TextureImage");
-	glUniform1i(h_textureImage, unit - GL_TEXTURE);
 }
 
 void bindProgram()
@@ -293,38 +244,6 @@ void bindProjectionMatrixToProgram()
 	glUniformMatrix4fv(h_modelViewMatrix, 1, GL_FALSE, m);
 }
 
-void drawActors()
-{
-	splineActor.Draw(program);
-	drawGround();
-}
-
-
-void drawGround()
-{
-	/*
-	GLuint vertexArray;
-	*/
-	glGenVertexArrays(1, &groundVAOHandle);
-	glBindVertexArray(groundVAOHandle);
-	
-	// Attribute 1: Position
-	GLuint attrib_pos = glGetAttribLocation(program, "position");
-	glEnableVertexAttribArray(attrib_pos);
-	glBindBuffer(GL_ARRAY_BUFFER, groundVertexHandle);
-	glVertexAttribPointer(attrib_pos, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-
-	// Attribute 2: Texture
-	GLuint attrib_tex = glGetAttribLocation(program, "texCoord");
-	glEnableVertexAttribArray(attrib_tex);
-	// bind the texture
-	glBindBuffer(GL_ARRAY_BUFFER, groundTexCoordHandle);
-	glVertexAttribPointer(attrib_tex, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
-
-	glBindTexture(GL_TEXTURE_2D, groundTexHandle);
-	glDrawArrays(GL_QUADS, 0, 4);
-	glBindVertexArray(0);
-}
 
 void idleFunc()
 {
@@ -340,7 +259,7 @@ void idleFunc()
 		camLookAtEye[0] = (float)splineActor.points[coasterStep].x;
 		camLookAtEye[1] = (float)splineActor.points[coasterStep].y;
 		camLookAtEye[2] = (float)splineActor.points[coasterStep].z;
-		
+
 		if (coasterStep > 0)
 		{
 			--coasterStep;
@@ -379,15 +298,15 @@ void idleFunc()
 
 void reshapeFunc(int w, int h)
 {
-  glViewport(0, 0, w, h);
+	glViewport(0, 0, w, h);
 
-  // setup perspective matrix...
-  GLfloat aspect = (GLfloat)w / (GLfloat)h;
-  glViewport(0, 0, w, h);
-  matrix->SetMatrixMode(OpenGLMatrix::Projection);
-  matrix->LoadIdentity();
-  matrix->Perspective(60, aspect, 0.01f, 1000);
-  matrix->SetMatrixMode(OpenGLMatrix::ModelView);
+	// setup perspective matrix...
+	GLfloat aspect = (GLfloat)w / (GLfloat)h;
+	glViewport(0, 0, w, h);
+	matrix->SetMatrixMode(OpenGLMatrix::Projection);
+	matrix->LoadIdentity();
+	matrix->Perspective(60, aspect, 0.01f, 1000);
+	matrix->SetMatrixMode(OpenGLMatrix::ModelView);
 }
 
 void keyboardFunc(unsigned char key, int x, int y)
@@ -401,7 +320,7 @@ void keyboardFunc(unsigned char key, int x, int y)
 	case 'p':
 		startScreenshotRecording = !startScreenshotRecording;
 		break;
-	
+
 	case 'x':
 		saveScreenshot("screenshot.jpg");
 		break;

@@ -1,3 +1,4 @@
+#pragma once
 #ifndef _PIPELINE_PROGRAM_H_
 #define _PIPELINE_PROGRAM_H_
 

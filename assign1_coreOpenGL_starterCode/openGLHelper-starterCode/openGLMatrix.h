@@ -1,3 +1,4 @@
+#pragma once
 #ifndef _OPENGLMATRIX_H_
 #define _OPENGLMATRIX_H_
 

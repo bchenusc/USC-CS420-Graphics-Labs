@@ -19,6 +19,15 @@
     <Filter Include="splines">
       <UniqueIdentifier>{03f8214f-f6b1-41c8-b183-a1c153c31bc7}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Actors">
+      <UniqueIdentifier>{3d1d3872-c51d-4f7a-aded-1763979ed5d7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\StarterCode">
+      <UniqueIdentifier>{b3849573-7f48-4a02-9f4d-14660141f227}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Helper">
+      <UniqueIdentifier>{99fcd96e-b72a-4d50-a94b-f58daea42cb4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="hw1.cpp">
@@ -38,50 +47,53 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\openGLHelper-starterCode\basicPipelineProgram.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\openGLHelper-starterCode\glutHeader.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\openGLHelper-starterCode\openGLHeader.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\openGLHelper-starterCode\openGLMatrix.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\openGLHelper-starterCode\pipelineProgram.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\external\imageIO\imageFormats.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\external\imageIO\imageIO.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="SplineTool.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="HeightmapTool.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="SplineActor.h">
+      <Filter>Header Files\Actors</Filter>
     </ClInclude>
     <ClInclude Include="Sky.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Actors</Filter>
+    </ClInclude>
+    <ClInclude Include="..\openGLHelper-starterCode\basicPipelineProgram.h">
+      <Filter>Header Files\StarterCode</Filter>
+    </ClInclude>
+    <ClInclude Include="..\openGLHelper-starterCode\glutHeader.h">
+      <Filter>Header Files\StarterCode</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\imageIO\imageFormats.h">
+      <Filter>Header Files\StarterCode</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\imageIO\imageIO.h">
+      <Filter>Header Files\StarterCode</Filter>
+    </ClInclude>
+    <ClInclude Include="..\openGLHelper-starterCode\openGLHeader.h">
+      <Filter>Header Files\StarterCode</Filter>
+    </ClInclude>
+    <ClInclude Include="..\openGLHelper-starterCode\openGLMatrix.h">
+      <Filter>Header Files\StarterCode</Filter>
+    </ClInclude>
+    <ClInclude Include="..\openGLHelper-starterCode\pipelineProgram.h">
+      <Filter>Header Files\StarterCode</Filter>
     </ClInclude>
     <ClInclude Include="Textures.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Helper</Filter>
+    </ClInclude>
+    <ClInclude Include="SplineTool.h">
+      <Filter>Header Files\Helper</Filter>
     </ClInclude>
     <ClInclude Include="Point.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Camera.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Spline.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Helper</Filter>
     </ClInclude>
     <ClInclude Include="Actor.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Actors</Filter>
+    </ClInclude>
+    <ClInclude Include="Camera.h">
+      <Filter>Header Files\Actors</Filter>
+    </ClInclude>
+    <ClInclude Include="PlanePlacements.h">
+      <Filter>Header Files\Actors</Filter>
+    </ClInclude>
+    <ClInclude Include="PlaneActor.h">
+      <Filter>Header Files\Actors</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

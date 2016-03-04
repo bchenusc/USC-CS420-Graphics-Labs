@@ -4,6 +4,14 @@
 #include "openGLMatrix.h"
 #include "basicPipelineProgram.h"
 
+int textureHandleCounter = -1;
+
+int makeTextureHandle()
+{
+	++textureHandleCounter;
+	return textureHandleCounter;
+}
+
 int initTexture(const char * imageFilename, GLuint textureHandle)
 {
 	// read the texture image
@@ -79,4 +87,12 @@ int initTexture(const char * imageFilename, GLuint textureHandle)
 	delete[] pixelsRGBA;
 
 	return 0;
+}
+
+void setTextureUnit(GLint unit, GLint program)
+{
+	glActiveTexture(unit); // select the active texture unit.
+	//get a handle to the "textureImage" shader variable
+	GLint h_textureImage = glGetUniformLocation(program, "TextureImage");
+	glUniform1i(h_textureImage, unit - GL_TEXTURE);
 }
