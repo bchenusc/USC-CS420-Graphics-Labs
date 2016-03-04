@@ -80,6 +80,7 @@ int rightMouseButton = 0; // 1 if pressed, 0 if not
 // state of the world
 float camRotate[3] = { 0.0f, 0.0f, 0.0f };
 float camTranslate[3] = { 0.0f, 0.0f, 0.0f };
+float camLookat[3] = { 0.0f, 0.0f, 0.0f };
 float camZoom[3] = { 1.0f, 1.0f, 1.0f };
 
 int windowWidth = 1280;
@@ -114,7 +115,6 @@ float idleRotationSpeed = 0.025f;
 bool allowIdleScreenCapture = false;
 
 float rotateSensitivity = 0.05f;
-float translateSensitivity = 0.025f;
 float zoomSensitivity = 0.025f; 
 float scaleSensitivity = 0.01f;
 
@@ -127,13 +127,19 @@ bool startScreenshotRecording = false;
 Spline* splines /* The splines array */;
 int numSplines /* Total number of splines. */;
 
+int coasterTangentCounter = 0;
+const float coasterMoveSpeed = 0.001f;
+float coasterMoveCounter = 0;
+
 std::vector<unsigned int> wireFrameIndex;
 std::vector<Point> splinePoints;
+std::vector<Point> splineTangents;
+std::vector<Point> splineNormals;
 Point4 catmullBasis[4];
 const double sTensionParameter = 0.5;
 const double uStepSize = 0.01;
 
-Sky* sky;
+//Sky* sky;
 
 float terrainVertices[4][3] =
 {
@@ -201,8 +207,8 @@ int main(int argc, char *argv[])
 	initSplineBuffers();
 
 	initGround();
-	sky = new Sky(program);
-	sky->initSky();
+	//sky = new Sky(program);
+	//sky->initSky();
 
 	// sink forever into the glut loop
 	glutMainLoop();
@@ -273,21 +279,52 @@ void initSplineBuffers()
 }
 
 
-
 void generateSplinePoints(int controlPoints)
 {
 	generateBasisVector();
 	splinePoints.reserve(controlPoints * (int)(1.0 / uStepSize));
+	splineTangents.reserve(controlPoints * (int)(1.0 / uStepSize));
+	splineNormals.reserve(controlPoints * (int)(1.0 / uStepSize));
 
 	// Generate the points on the spline.
 	for (int i = 0; i < controlPoints - 3; ++i)
 	{
 		for (double u = 0.0; u <= 1.0; u += uStepSize)
 		{
+			// Calculate spline points
 			splinePoints.push_back(
 				CatmullRomAlgorithm(
 				u, catmullBasis[0], catmullBasis[1], catmullBasis[2], catmullBasis[3],
 				splines[0].points[i], splines[0].points[i + 1], splines[0].points[i + 2], splines[0].points[i + 3]));
+			
+			// Calculate spline tangents.
+			splineTangents.push_back(Normalize(
+				CatmullRomAlgorithmDerivative(
+				u, catmullBasis[0], catmullBasis[1], catmullBasis[2], catmullBasis[3],
+				splines[0].points[i], splines[0].points[i + 1], splines[0].points[i + 2], splines[0].points[i + 3])));
+		}
+	}
+
+	// Generate normals
+	Point n (0,1,0);
+	Point b = Normalize(pCross(splineTangents[0], n));
+	// Generate  the normals.
+	for (int i = 0; i < controlPoints - 3; ++i)
+	{
+		for (double u = 0.0; u <= 1.0; u += uStepSize)
+		{
+			// Calculate normal for camera.
+			
+			splineNormals.push_back(n);
+			if (splineNormals.size() < splineTangents.size())
+			{
+				n = Normalize(pCross(b, splineTangents[splineNormals.size()]));
+				b = Normalize(pCross(splineTangents[splineNormals.size()], n));
+			}
+			else
+			{
+				break;
+			}
 		}
 	}
 }
@@ -337,11 +374,19 @@ void displayFunc()
 		GL_DEPTH_BUFFER_BIT);
 	matrix->LoadIdentity();
 	// Camera controls:
-	matrix->LookAt(0, CAMERA_HEIGHT + camZoom[2], CAMERA_DEPTH + camZoom[2], 0, 0, 0, 0, 1, 0);
-	matrix->Translate(camTranslate[0], camTranslate[1], 0);
-	matrix->Rotate(camRotate[0], 1, 0, 0);
-	matrix->Rotate(camRotate[1], 0, 1, 0);
-	matrix->Rotate(camRotate[2], 0, 0, 1);
+
+	matrix->LookAt(camLookat[0],
+		camLookat[1],
+		camLookat[2], camLookat[0] + -splineTangents[coasterTangentCounter].x * 4.0f, 
+		camLookat[1] - splineTangents[coasterTangentCounter].y * 4.0f,
+		camLookat[2] + -splineTangents[coasterTangentCounter].z * 4.0f,
+		splineNormals[coasterTangentCounter].x, 
+		splineNormals[coasterTangentCounter].y, splineNormals[coasterTangentCounter].z);
+
+	//matrix->Translate(camTranslate[0], camTranslate[1], camTranslate[2]);
+	//matrix->Rotate(camRotate[0], 1, 0, 0);
+	//matrix->Rotate(camRotate[1], 0, 1, 0);
+	//matrix->Rotate(camRotate[2], 0, 0, 1);
 
 	setTextureUnit(GL_TEXTURE0);
 
@@ -378,7 +423,7 @@ void bindAndDrawVertexToProgram()
 {
 	drawSpline();
 	drawGround();
-	sky->draw();
+	//sky->draw();
 }
 
 void drawSpline()
@@ -434,17 +479,34 @@ void idleFunc()
 	int deltaTime = newTime - oldTime;
 	oldTime = newTime;
 
-	if ((leftMouseButton | rightMouseButton | middleMouseButton) == 1)
+	// Move the camera
+	if (coasterMoveCounter <= 0)
 	{
-		// Redisplay the screen as normal if mouse inputs.
-		glutPostRedisplay();
+		coasterMoveCounter = coasterMoveSpeed + coasterMoveCounter;
+		camLookat[0] = splinePoints[coasterTangentCounter].x;
+		camLookat[1] = splinePoints[coasterTangentCounter].y;
+		camLookat[2] = splinePoints[coasterTangentCounter].z;
+
+		camTranslate[0] = splinePoints[coasterTangentCounter].x;
+		camTranslate[1] = splinePoints[coasterTangentCounter].y;
+		camTranslate[2] = splinePoints[coasterTangentCounter].z;
+		
+		if (coasterTangentCounter > 0)
+		{
+			--coasterTangentCounter;
+		}
+		else
+		{
+			coasterTangentCounter = splineTangents.size() - 1;
+		}
+
 	}
-	else
+	if (coasterMoveCounter <= coasterMoveSpeed)
 	{
-		// Rotate map by delta time if no input.
-		//camRotate[1] += deltaTime * idleRotationSpeed;
-		glutPostRedisplay();
+		coasterMoveCounter -= deltaTime;
 	}
+
+	glutPostRedisplay();
 
 	if (startScreenshotRecording)
 	{
@@ -486,8 +548,8 @@ void mouseMotionDragFunc(int x, int y)
 	if (rightMouseButton)
 	{
 	// translate the camera via the right mouse button.
-	camTranslate[0] += mousePosDelta[0] * translateSensitivity;
-	camTranslate[1] -= mousePosDelta[1] * translateSensitivity;
+	//camTranslate[0] += mousePosDelta[0] * translateSensitivity;
+	//camTranslate[1] -= mousePosDelta[1] * translateSensitivity;
 	}
 
 	if (leftMouseButton)
