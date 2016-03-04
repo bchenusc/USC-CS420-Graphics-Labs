@@ -18,8 +18,8 @@
 #include <sstream>
 #include <iomanip>
 #include "SplineTool.h"
-#include "Terrain.h"
-#include "Sky.h"
+#include "Textures.h"
+#include "Spline.h"
 
 #ifdef WIN32
   #ifdef _DEBUG
@@ -38,25 +38,15 @@
 using namespace std;
 
 void initHandlers();
-void initMapImage(const char* fileName);
-void initMap3D();
-void initTerrainVertices();
-void initTerrainColors();
-void initTerrainIndices();
-void initBuffers();
 void initPipelineProgram();
 void bindProgram();
 void bindProjectionMatrixToProgram();
-void bindAndDrawVertexToProgram();
+void drawScene();
 
 // hw2
 void initGround();
-void initSplineBuffers();
 void initGroundBuffers();
 void initGroundTextures();
-void generateBasisVector();
-void generateSplinePoints(int controlPoints);
-void drawSpline();
 void drawGround();
 void setTextureUnit(GLint unit);
 
@@ -64,24 +54,11 @@ void displayFunc();
 void idleFunc();
 void initScene();
 void keyboardFunc(unsigned char key, int x, int y);
-void mouseButtonFunc(int button, int state, int x, int y);
-void mouseMotionFunc(int x, int y);
-void mouseMotionDragFunc(int x, int y);
-void mouseMotionDragFunc(int button, int state, int x, int y);
 void reshapeFunc(int w, int h);
 void saveScreenshot(const char* filename);
 
-int mousePos[2]; // x,y coordinate of the mouse position
-
-int leftMouseButton = 0; // 1 if pressed, 0 if not 
-int middleMouseButton = 0; // 1 if pressed, 0 if not
-int rightMouseButton = 0; // 1 if pressed, 0 if not
-
-// state of the world
-float camRotate[3] = { 0.0f, 0.0f, 0.0f };
-float camTranslate[3] = { 0.0f, 0.0f, 0.0f };
+// Camera
 float camLookat[3] = { 0.0f, 0.0f, 0.0f };
-float camZoom[3] = { 1.0f, 1.0f, 1.0f };
 
 int windowWidth = 1280;
 int windowHeight = 720;
@@ -90,25 +67,19 @@ char windowTitle[512] = "CSCI 420 homework II";
 ImageIO * heightmapImage;
 
 // ############### My Code ############### //
-enum DRAW_STATE { DS_POINT = 0, DS_WIRE = 1};
-DRAW_STATE drawState = DS_WIRE;
-
 OpenGLMatrix* matrix;
 BasicPipelineProgram* pipelineProgram;
 GLuint program;
 
-const float CAMERA_HEIGHT = 1.0f;
-const float CAMERA_DEPTH = 1.0f;
-const float MAX_COLOR = 255.0f;
+// VBO Handles
 
-GLuint splineVertexBuffer;
-GLuint splineIndexBuffer;
-GLuint terrainVertexBuffer;
-GLuint terrainTextureBuffer;
-GLuint textHandle;
+GLuint groundVertexHandle;
+GLuint groundTexCoordHandle;
+GLuint groundTexHandle;
 
-GLuint splineArray;
-GLuint terrainArray;
+// VAO Handles
+
+GLuint groundVAOHandle;
 
 int oldTime = 0; /* Calculates delta time. */
 float idleRotationSpeed = 0.025f;
@@ -124,20 +95,13 @@ const float screenshotDelay = 0.0666f;
 bool startScreenshotRecording = false;
 
 // Hw2
-Spline* splines /* The splines array */;
-int numSplines /* Total number of splines. */;
+
 
 int coasterTangentCounter = 0;
 const float coasterMoveSpeed = 0.001f;
 float coasterMoveCounter = 0;
 
-std::vector<unsigned int> wireFrameIndex;
-std::vector<Point> splinePoints;
-std::vector<Point> splineTangents;
-std::vector<Point> splineNormals;
-Point4 catmullBasis[4];
-const double sTensionParameter = 0.5;
-const double uStepSize = 0.01;
+
 
 //Sky* sky;
 
@@ -203,8 +167,8 @@ int main(int argc, char *argv[])
 	initScene();
 	
 	// hw2
-	initSpline(argc, argv, &splines, numSplines);
-	initSplineBuffers();
+	initSpline(argc, argv, &splines, splineNums);
+	splineInitBuffers();
 
 	initGround();
 	//sky = new Sky(program);
@@ -220,12 +184,6 @@ void initHandlers()
 	glutDisplayFunc(displayFunc);
 	// perform animation inside idleFunc
 	glutIdleFunc(idleFunc);
-	// callback for mouse drags
-	glutMotionFunc(mouseMotionDragFunc);
-	// callback for idle mouse movement
-	glutPassiveMotionFunc(mouseMotionFunc);
-	// callback for mouse button changes
-	glutMouseFunc(mouseButtonFunc);
 	// callback for resizing the window
 	glutReshapeFunc(reshapeFunc);
 	// callback for pressing the keys on the keyboard
@@ -248,96 +206,9 @@ void initPipelineProgram()
 	pipelineProgram->Init("../openGLHelper-starterCode");
 }
 
-void initSplineBuffers()
-{
-	generateSplinePoints(splines[0].numControlPoints);
-
-	/*
-	Index Array
-	Looks like: 0, 1, 1, 2, 2, 3, 3, 4, 4 ... n - 2, n - 2, n - 1
-	*/
-
-	wireFrameIndex.reserve(1000);
-	wireFrameIndex.push_back(0);
-	for (unsigned i = 1; i < splinePoints.size(); ++i)
-	{
-		wireFrameIndex.push_back(i);
-		wireFrameIndex.push_back(i);
-	}
-	wireFrameIndex.push_back(splinePoints.size() - 1);
-
-	/*
-	GLuint vertexBuffer (vec3);
-	*/
-	glGenBuffers(1, &splineVertexBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, splineVertexBuffer);
-	glBufferData(GL_ARRAY_BUFFER, splinePoints.size() * sizeof(Point), &splinePoints[0], GL_STATIC_DRAW);
-
-	glGenBuffers(1, &splineIndexBuffer);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, splineIndexBuffer);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, wireFrameIndex.size() * sizeof(unsigned int), &wireFrameIndex[0], GL_STATIC_DRAW);
-}
 
 
-void generateSplinePoints(int controlPoints)
-{
-	generateBasisVector();
-	splinePoints.reserve(controlPoints * (int)(1.0 / uStepSize));
-	splineTangents.reserve(controlPoints * (int)(1.0 / uStepSize));
-	splineNormals.reserve(controlPoints * (int)(1.0 / uStepSize));
 
-	// Generate the points on the spline.
-	for (int i = 0; i < controlPoints - 3; ++i)
-	{
-		for (double u = 0.0; u <= 1.0; u += uStepSize)
-		{
-			// Calculate spline points
-			splinePoints.push_back(
-				CatmullRomAlgorithm(
-				u, catmullBasis[0], catmullBasis[1], catmullBasis[2], catmullBasis[3],
-				splines[0].points[i], splines[0].points[i + 1], splines[0].points[i + 2], splines[0].points[i + 3]));
-			
-			// Calculate spline tangents.
-			splineTangents.push_back(Normalize(
-				CatmullRomAlgorithmDerivative(
-				u, catmullBasis[0], catmullBasis[1], catmullBasis[2], catmullBasis[3],
-				splines[0].points[i], splines[0].points[i + 1], splines[0].points[i + 2], splines[0].points[i + 3])));
-		}
-	}
-
-	// Generate normals
-	Point n (0,1,0);
-	Point b = Normalize(pCross(splineTangents[0], n));
-	// Generate  the normals.
-	for (int i = 0; i < controlPoints - 3; ++i)
-	{
-		for (double u = 0.0; u <= 1.0; u += uStepSize)
-		{
-			// Calculate normal for camera.
-			
-			splineNormals.push_back(n);
-			if (splineNormals.size() < splineTangents.size())
-			{
-				n = Normalize(pCross(b, splineTangents[splineNormals.size()]));
-				b = Normalize(pCross(splineTangents[splineNormals.size()], n));
-			}
-			else
-			{
-				break;
-			}
-		}
-	}
-}
-
-void generateBasisVector()
-{
-	// Basis vector is used to generate the spline.
-	const double s = sTensionParameter;
-	catmullBasis[0] = Point4(-s, 2 - s, s - 2, s);
-	catmullBasis[1] = Point4(2 * s, s - 3, 3 - 2 * s, -s);
-	catmullBasis[2] = Point4(-s, 0, s, 0);
-	catmullBasis[3] = Point4(0, 1, 0, 0);
-}
 
 
 void initGround()
@@ -348,7 +219,7 @@ void initGround()
 
 void initGroundTextures()
 {
-	int code = initTexture("./Hw2Textures/ground.jpg", textHandle);
+	int code = initTexture("./Hw2Textures/ground.jpg", groundTexHandle);
 	if (code != 0)
 	{
 		printf("Error loading the texture image. \n");
@@ -358,12 +229,12 @@ void initGroundTextures()
 
 void initGroundBuffers()
 {
-	glGenBuffers(1, &terrainVertexBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, terrainVertexBuffer);
+	glGenBuffers(1, &groundVertexHandle);
+	glBindBuffer(GL_ARRAY_BUFFER, groundVertexHandle);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(terrainVertices), terrainVertices, GL_STATIC_DRAW);
 
-	glGenBuffers(1, &terrainTextureBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, terrainTextureBuffer);
+	glGenBuffers(1, &groundTexCoordHandle);
+	glBindBuffer(GL_ARRAY_BUFFER, groundTexCoordHandle);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(terrainTexCoord), terrainTexCoord, GL_STATIC_DRAW);
 
 }
@@ -375,18 +246,14 @@ void displayFunc()
 	matrix->LoadIdentity();
 	// Camera controls:
 
-	matrix->LookAt(camLookat[0],
+	matrix->LookAt(
+		camLookat[0],
 		camLookat[1],
 		camLookat[2], camLookat[0] + -splineTangents[coasterTangentCounter].x * 4.0f, 
 		camLookat[1] - splineTangents[coasterTangentCounter].y * 4.0f,
 		camLookat[2] + -splineTangents[coasterTangentCounter].z * 4.0f,
 		splineNormals[coasterTangentCounter].x, 
 		splineNormals[coasterTangentCounter].y, splineNormals[coasterTangentCounter].z);
-
-	//matrix->Translate(camTranslate[0], camTranslate[1], camTranslate[2]);
-	//matrix->Rotate(camRotate[0], 1, 0, 0);
-	//matrix->Rotate(camRotate[1], 0, 1, 0);
-	//matrix->Rotate(camRotate[2], 0, 0, 1);
 
 	setTextureUnit(GL_TEXTURE0);
 
@@ -407,7 +274,7 @@ void bindProgram()
 	pipelineProgram->Bind();
 	program = pipelineProgram->GetProgramHandle();
 	bindProjectionMatrixToProgram();
-	bindAndDrawVertexToProgram();
+	drawScene();
 }
 
 void bindProjectionMatrixToProgram()
@@ -419,55 +286,36 @@ void bindProjectionMatrixToProgram()
 	glUniformMatrix4fv(h_modelViewMatrix, 1, GL_FALSE, m);
 }
 
-void bindAndDrawVertexToProgram()
+void drawScene()
 {
-	drawSpline();
+	drawSpline(program);
 	drawGround();
 	//sky->draw();
 }
 
-void drawSpline()
-{
-	/*
-	GLuint vertexArray;
-	*/
-	glGenVertexArrays(1, &splineArray);
-	glBindVertexArray(splineArray);
-	// Attribute 1: Position
-	GLuint attrib_pos = glGetAttribLocation(program, "position");
-	glEnableVertexAttribArray(attrib_pos);
-	glBindBuffer(GL_ARRAY_BUFFER, splineVertexBuffer);
-	glVertexAttribPointer(attrib_pos, 3, GL_DOUBLE, GL_FALSE, 0, (void*)0);
-
-	// Draw Indexed
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, splineIndexBuffer);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	glDrawElements(GL_LINES, wireFrameIndex.size(), GL_UNSIGNED_INT, (void*)0);
-	glBindVertexArray(0);
-}
 
 void drawGround()
 {
 	/*
 	GLuint vertexArray;
 	*/
-	glGenVertexArrays(1, &terrainArray);
-	glBindVertexArray(terrainArray);
+	glGenVertexArrays(1, &groundVAOHandle);
+	glBindVertexArray(groundVAOHandle);
 	
 	// Attribute 1: Position
 	GLuint attrib_pos = glGetAttribLocation(program, "position");
 	glEnableVertexAttribArray(attrib_pos);
-	glBindBuffer(GL_ARRAY_BUFFER, terrainVertexBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, groundVertexHandle);
 	glVertexAttribPointer(attrib_pos, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
 	// Attribute 2: Texture
 	GLuint attrib_tex = glGetAttribLocation(program, "texCoord");
 	glEnableVertexAttribArray(attrib_tex);
 	// bind the texture
-	glBindBuffer(GL_ARRAY_BUFFER, terrainTextureBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, groundTexCoordHandle);
 	glVertexAttribPointer(attrib_tex, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
-	glBindTexture(GL_TEXTURE_2D, textHandle);
+	glBindTexture(GL_TEXTURE_2D, groundTexHandle);
 	glDrawArrays(GL_QUADS, 0, 4);
 	glBindVertexArray(0);
 }
@@ -486,10 +334,6 @@ void idleFunc()
 		camLookat[0] = splinePoints[coasterTangentCounter].x;
 		camLookat[1] = splinePoints[coasterTangentCounter].y;
 		camLookat[2] = splinePoints[coasterTangentCounter].z;
-
-		camTranslate[0] = splinePoints[coasterTangentCounter].x;
-		camTranslate[1] = splinePoints[coasterTangentCounter].y;
-		camTranslate[2] = splinePoints[coasterTangentCounter].z;
 		
 		if (coasterTangentCounter > 0)
 		{
@@ -508,6 +352,7 @@ void idleFunc()
 
 	glutPostRedisplay();
 
+	// Screen recording:
 	if (startScreenshotRecording)
 	{
 		// Create screenshots.
@@ -539,94 +384,12 @@ void reshapeFunc(int w, int h)
   matrix->SetMatrixMode(OpenGLMatrix::ModelView);
 }
 
-void mouseMotionDragFunc(int x, int y)
-{
-	// mouse has moved and one of the mouse buttons is pressed (dragging)
-	// the change in mouse position since the last invocation of this function
-	int mousePosDelta[2] = { x - mousePos[0], y - mousePos[1] };
-
-	if (rightMouseButton)
-	{
-	// translate the camera via the right mouse button.
-	//camTranslate[0] += mousePosDelta[0] * translateSensitivity;
-	//camTranslate[1] -= mousePosDelta[1] * translateSensitivity;
-	}
-
-	if (leftMouseButton)
-	{
-	// translate the camera via the left mouse button.
-	camRotate[0] += mousePosDelta[1] * rotateSensitivity;
-	camRotate[1] += mousePosDelta[0] * rotateSensitivity;
-	}
-
-	// store the new mouse position
-	mousePos[0] = x;
-	mousePos[1] = y;
-}
-
-void mouseMotionFunc(int x, int y)
-{
-  // mouse has moved
-  // store the new mouse position
-  mousePos[0] = x;
-  mousePos[1] = y;
-}
-
-void mouseButtonFunc(int button, int state, int x, int y)
-{
-  // a mouse button has has been pressed or depressed
-
-  // keep track of the mouse button state, in leftMouseButton, middleMouseButton, rightMouseButton variables
-  switch (button)
-  {
-    case GLUT_LEFT_BUTTON:
-      leftMouseButton = (state == GLUT_DOWN);
-	  oldTime = glutGet(GLUT_ELAPSED_TIME);
-    break;
-
-    case GLUT_MIDDLE_BUTTON:
-      middleMouseButton = (state == GLUT_DOWN);
-	  oldTime = glutGet(GLUT_ELAPSED_TIME);
-    break;
-
-    case GLUT_RIGHT_BUTTON:
-      rightMouseButton = (state == GLUT_DOWN);
-	  oldTime = glutGet(GLUT_ELAPSED_TIME);
-    break;
-
-	case 3 /* Scroll up */:
-		if (state == GLUT_DOWN) { camZoom[2] -= 1.0f; }
-	break;
-
-	case 4 /* Scroll down */:
-		if (state == GLUT_DOWN) { camZoom[2] += 1.0f; }
-	break;
-  }
-
-  // store the new mouse position
-  mousePos[0] = x;
-  mousePos[1] = y;
-}
-
 void keyboardFunc(unsigned char key, int x, int y)
 {
 	switch (key)
 	{
 	case 27: // ESC key
 		exit(0); // exit the program
-		break;
-
-	case '1':
-		// Draw Points
-		drawState = DRAW_STATE::DS_POINT;
-
-		glutPostRedisplay();
-		break;
-
-	case '2':
-		// Draw wires.
-		drawState = DRAW_STATE::DS_WIRE;
-		glutPostRedisplay();
 		break;
 
 	case 'p':

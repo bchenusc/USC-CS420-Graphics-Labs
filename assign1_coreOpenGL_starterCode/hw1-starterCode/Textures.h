@@ -1,11 +1,8 @@
 #pragma once
-#include <stdio.h>
-#include <stdlib.h>
 #include "glutHeader.h"
 #include "imageIO.h"
 #include "openGLMatrix.h"
 #include "basicPipelineProgram.h"
-
 
 int initTexture(const char * imageFilename, GLuint textureHandle)
 {

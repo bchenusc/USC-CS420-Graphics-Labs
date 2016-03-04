@@ -2,7 +2,7 @@
 #include <vector>
 #include "glutHeader.h"
 #include "openGLHeader.h"
-#include "Terrain.h"
+#include "Textures.h"
 #include "imageIO.h"
 
 
