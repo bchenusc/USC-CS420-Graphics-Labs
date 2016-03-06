@@ -30,7 +30,6 @@
     <ClInclude Include="PlaneActor.h" />
     <ClInclude Include="PlanePlacements.h" />
     <ClInclude Include="Point.h" />
-    <ClInclude Include="Sky.h" />
     <ClInclude Include="SplineActor.h" />
     <ClInclude Include="SplineTool.h" />
     <ClInclude Include="Textures.h" />

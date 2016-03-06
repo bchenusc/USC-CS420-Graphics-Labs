@@ -11,7 +11,7 @@ using std::string;
 
 struct PlaneActor : public Actor
 {
-	PlaneActor(string texture, const float verts[4][3]);
+	PlaneActor(GLuint handle, const float verts[4][3]);
 	~PlaneActor();
 	virtual void Init();
 	virtual void Draw(GLuint program);
@@ -26,14 +26,13 @@ struct PlaneActor : public Actor
 
 private :
 	void initVBOBuffers();
-	void initPlaneTexture();
 
 	float texCoords[4][2];
 	float vertices[4][3];
 	string texture;
 };
 
-PlaneActor::PlaneActor(string textureFile, const float verts[4][3])
+PlaneActor::PlaneActor(GLuint handle, const float verts[4][3])
 {
 	// Copy over the correct vertices.
 	for (int row = 0; row < 4; ++row)
@@ -49,8 +48,7 @@ PlaneActor::PlaneActor(string textureFile, const float verts[4][3])
 	texCoords[2][0] = 1; texCoords[2][1] = 1;
 	texCoords[3][0] = 1; texCoords[3][1] = 0;
 
-	texture = textureFile;
-	texHandle = makeTextureHandle();
+	texHandle = handle;
 }
 
 PlaneActor::~PlaneActor()
@@ -60,7 +58,6 @@ PlaneActor::~PlaneActor()
 
 void PlaneActor::Init()
 {
-	initPlaneTexture();
 	initVBOBuffers();
 }
 
@@ -83,22 +80,11 @@ void PlaneActor::Draw(GLuint program)
 	glBindBuffer(GL_ARRAY_BUFFER, texCoordHandle);
 	glVertexAttribPointer(attrib_tex, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
-	setTextureUnit(GL_TEXTURE0, program);
+	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, texHandle);
 
 	glDrawArrays(GL_QUADS, 0, 4);
 	glBindVertexArray(0);
-	glDeleteTextures(1, &texHandle);
-}
-
-void PlaneActor::initPlaneTexture()
-{
-	int code = initTexture(texture.c_str(), texHandle);
-	if (code != 0)
-	{
-		printf("Error loading the texture image. \n");
-		exit(EXIT_FAILURE);
-	}
 }
 
 void PlaneActor::initVBOBuffers()

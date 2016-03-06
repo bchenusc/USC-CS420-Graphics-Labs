@@ -50,9 +50,6 @@
     <ClInclude Include="SplineActor.h">
       <Filter>Header Files\Actors</Filter>
     </ClInclude>
-    <ClInclude Include="Sky.h">
-      <Filter>Header Files\Actors</Filter>
-    </ClInclude>
     <ClInclude Include="..\openGLHelper-starterCode\basicPipelineProgram.h">
       <Filter>Header Files\StarterCode</Filter>
     </ClInclude>

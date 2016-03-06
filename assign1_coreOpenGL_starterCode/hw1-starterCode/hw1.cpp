@@ -46,6 +46,7 @@ void bindProgram();
 void bindProjectionMatrixToProgram();
 
 // hw2
+void initTextures();
 void initActors();
 void drawActors();
 
@@ -89,12 +90,26 @@ const float coasterMoveSpeed = 0.001f;
 float coasterMoveCounter = 0;
 
 SplineActor splineActor;
-PlaneActor groundActor("./Hw2Textures/ground.jpg", groundVertices);
-PlaneActor skyTopActor("./Hw2Textures/sky.jpg", skyTopVertices);
-PlaneActor skyHorizlActor1("./Hw2Textures/sky.jpg", skyHorizVerts1);
-PlaneActor skyHorizlActor2("./Hw2Textures/sky.jpg", skyHorizVerts1);
-PlaneActor skyHorizlActor3("./Hw2Textures/sky.jpg", skyHorizVerts1);
-PlaneActor skyHorizlActor4("./Hw2Textures/sky.jpg", skyHorizVerts1);
+
+const int textureCouns = 2;
+string textures[] =
+{
+	"./Hw2Textures/ground.jpg",
+	"./Hw2Textures/sky.jpg"
+};
+
+const int textureHandles[]
+{
+	0, // ground.jpg
+	1, // sky.jpg
+};
+
+PlaneActor groundActor(textureHandles[0], groundVertices);
+PlaneActor skyTopActor(textureHandles[1], skyTopVertices);
+PlaneActor skyH1Actor(textureHandles[1], skyHorizVerts1);
+PlaneActor skyH2Actor(textureHandles[1], skyHorizVerts2);
+PlaneActor skyH3Actor(textureHandles[1], skyHorizVerts3);
+PlaneActor skyH4Actor(textureHandles[1], skyHorizVerts4);
 
 int main(int argc, char *argv[])
 {
@@ -143,10 +158,19 @@ int main(int argc, char *argv[])
 
 	// hw2
 	initSpline(argc, argv, &splineActor.splines, splineActor.splineNums);
+	initTextures();
 	initActors();
 
 	// sink forever into the glut loop
 	glutMainLoop();
+}
+
+void initTextures()
+{
+	for (int i = 0; i < 2; i++)
+	{
+		initTextureWrapper(textures[i], textureHandles[i]);
+	}
 }
 
 void initHandlers()
@@ -175,10 +199,10 @@ void initActors()
 	splineActor.Init();
 	groundActor.Init();
 	skyTopActor.Init();
-	skyHorizlActor1.Init();
-	skyHorizlActor2.Init();
-	skyHorizlActor3.Init();
-	skyHorizlActor4.Init();
+	skyH1Actor.Init();
+	skyH2Actor.Init();
+	skyH3Actor.Init();
+	skyH4Actor.Init();
 }
 
 void drawActors()
@@ -186,10 +210,10 @@ void drawActors()
 	splineActor.Draw(program);
 	groundActor.Draw(program);
 	skyTopActor.Draw(program);
-	skyHorizlActor1.Draw(program);
-	skyHorizlActor2.Draw(program);
-	skyHorizlActor3.Draw(program);
-	skyHorizlActor4.Draw(program);
+	skyH1Actor.Draw(program);
+	skyH2Actor.Draw(program);
+	skyH3Actor.Draw(program);
+	skyH4Actor.Draw(program);
 }
 
 void initPipelineProgram()
@@ -243,7 +267,6 @@ void bindProjectionMatrixToProgram()
 	matrix->GetProjectionModelViewMatrix(m);
 	glUniformMatrix4fv(h_modelViewMatrix, 1, GL_FALSE, m);
 }
-
 
 void idleFunc()
 {

@@ -4,13 +4,7 @@
 #include "openGLMatrix.h"
 #include "basicPipelineProgram.h"
 
-int textureHandleCounter = -1;
-
-int makeTextureHandle()
-{
-	++textureHandleCounter;
-	return textureHandleCounter;
-}
+using std::string;
 
 int initTexture(const char * imageFilename, GLuint textureHandle)
 {
@@ -87,6 +81,16 @@ int initTexture(const char * imageFilename, GLuint textureHandle)
 	delete[] pixelsRGBA;
 
 	return 0;
+}
+
+void initTextureWrapper(string texture, GLuint handle)
+{
+	int code = initTexture(texture.c_str(), handle);
+	if (code != 0)
+	{
+		printf("Error loading the texture image. \n");
+		exit(EXIT_FAILURE);
+	}
 }
 
 void setTextureUnit(GLint unit, GLint program)
