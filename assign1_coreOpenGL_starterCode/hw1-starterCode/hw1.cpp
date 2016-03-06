@@ -24,6 +24,7 @@
 #include "SplineActor.h"
 #include "Textures.h"
 #include "RailActor.h"
+#include "CrossActorManager.h"
 
 #ifdef WIN32
 #ifdef _DEBUG
@@ -92,20 +93,23 @@ float coasterMoveCounter = 0;
 
 bool pause = false;
 
-const int textureCounts = 3;
+const int textureCounts = 4;
 string textures[] =
 {
 	"./Hw2Textures/ground.jpg",
 	"./Hw2Textures/sky.jpg",
 	"./Hw2Textures/rails.jpg",
+	"./Hw2Textures/cross.jpg",
 };
 
-const int textureHandles[]
+const GLuint textureHandles[]
 {
 	0, // ground.jpg
 	1, // sky.jpg
 	2, // rails.jpg
+	3, // cross.jpg
 };
+
 
 SplineActor splineActor;
 PlaneActor groundActor(textureHandles[0], groundVertices);
@@ -114,8 +118,9 @@ PlaneActor skyH1Actor(textureHandles[1], skyHorizVerts1);
 PlaneActor skyH2Actor(textureHandles[1], skyHorizVerts2);
 PlaneActor skyH3Actor(textureHandles[1], skyHorizVerts3);
 PlaneActor skyH4Actor(textureHandles[1], skyHorizVerts4);
-RailActor railActor(textureHandles[2], splineActor, -0.5);
-RailActor railActor2(textureHandles[2], splineActor, 0.5);
+RailActor railActor(textureHandles[2], splineActor, -railSplitSize);
+RailActor railActor2(textureHandles[2], splineActor, railSplitSize);
+CrossActorManager crossManager(textureHandles[2], RAIL_SIZE, &splineActor);
 
 int main(int argc, char *argv[])
 {
@@ -211,6 +216,7 @@ void initActors()
 	skyH4Actor.Init();
 	railActor.Init();
 	railActor2.Init();
+	crossManager.Init();
 }
 
 void drawActors()
@@ -224,6 +230,7 @@ void drawActors()
 	skyH4Actor.Draw(program);
 	railActor.Draw(program);
 	railActor2.Draw(program);
+	crossManager.Draw(program);
 }
 
 void initPipelineProgram()

@@ -52,6 +52,15 @@ Point pCross(const Point& u, const Point& v)
 	return p;
 }
 
+// Normalizes point p.
+Point Normalize(const Point& outPoint)
+{
+	float length = sqrtf((float)(outPoint.x * outPoint.x + outPoint.y * outPoint.y + outPoint.z * outPoint.z));
+	Point p(outPoint.x / length, outPoint.y / length, outPoint.z / length);
+	return p;
+}
+
+
 struct Point4
 {
 	double x;

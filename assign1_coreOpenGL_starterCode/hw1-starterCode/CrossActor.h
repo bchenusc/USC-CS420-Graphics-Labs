@@ -6,12 +6,9 @@
 
 using std::vector;
 
-const double railSplitSize = 0.5;
-const double RAIL_SIZE = 0.05;
-
-struct RailActor: public Actor
+struct CrossActor : public Actor
 {
-	RailActor(GLuint texHandle, SplineActor& spline, double offset);
+	CrossActor(GLuint texHandle, SplineActor* spline);
 
 	virtual void Init();
 	virtual void Draw(GLuint program);
@@ -22,8 +19,7 @@ struct RailActor: public Actor
 	GLuint texCoordHandle;
 	GLuint texHandle;
 
-	// VAO Handle
-	GLuint vaoHandle;
+	
 
 private:
 	void initVBOBuffers();
@@ -33,46 +29,43 @@ private:
 	vector<unsigned> indexBuffer;
 	vector<Point2> texCoords;
 
-	double offset;
+	const double size = 20.0f;
+
 };
 
-RailActor::RailActor(GLuint texHandle, SplineActor& spline, double offset)
+CrossActor::CrossActor(GLuint texHandle, SplineActor* spline)
 {
 	this->texHandle = texHandle;
-	refSpline = &spline;
-	this->offset = offset;
+	refSpline = spline;
 }
 
-void RailActor::Init()
+void CrossActor::Init()
 {
-	vertices.reserve(refSpline->normals.size() * 4);
-	indexBuffer.reserve(refSpline->normals.size() * 4);
-
-	for (unsigned int i = 0; i < refSpline->normals.size(); ++i)
+	for (unsigned int i = 0; i < 2; ++i)
 	{
 		Point p = refSpline->points[i];
 		Point n = refSpline->normals[i];
 		Point b = pCross(refSpline->tangents[i], n);
-		vertices.push_back(b * offset + p + (b - n) * RAIL_SIZE); //v0
-		vertices.push_back(b * offset + p + (n + b) * RAIL_SIZE);	   //v1
-		vertices.push_back(b * offset + p + ((n - b) * RAIL_SIZE)); //v2
+		vertices.push_back(p + (b - n) * size);		//v0
+		vertices.push_back(p + (n + b) * size);		//v1
+		vertices.push_back(p + ((n - b) * size));	//v2
 		Point neg = n * -1.0;
-		vertices.push_back(b * offset + p + (neg - b) * RAIL_SIZE); //v3
+		vertices.push_back(p + (neg - b) * size);	//v3
 	}
 
-	for (unsigned int i = 0; i < vertices.size() - 5; ++i)
+	for (unsigned int i = 0; i < 8 /*Number of vertices*/ - 5 /*Loop unrolling*/; ++i)
 	{
 		indexBuffer.push_back(i);
-		indexBuffer.push_back(i+1);
-		indexBuffer.push_back(i+4);
-		indexBuffer.push_back(i+5);
+		indexBuffer.push_back(i + 1);
+		indexBuffer.push_back(i + 4);
+		indexBuffer.push_back(i + 5);
 	}
-	for (unsigned int i = 0; i < refSpline->normals.size() - 1; ++i)
+	for (unsigned int i = 0; i < 2 /*Number of normals*/ - 1; ++i)
 	{
 		indexBuffer.push_back(i);
-		indexBuffer.push_back(i+3);
-		indexBuffer.push_back(i+4);
-		indexBuffer.push_back(i+7);
+		indexBuffer.push_back(i + 3);
+		indexBuffer.push_back(i + 4);
+		indexBuffer.push_back(i + 7);
 	}
 
 	for (unsigned int i = 0; i < indexBuffer.size(); i++)
@@ -96,11 +89,9 @@ void RailActor::Init()
 	initVBOBuffers();
 }
 
-void RailActor::Draw(GLuint program)
+void CrossActor::Draw(GLuint program)
 {
 	// Bind VAO
-	glGenVertexArrays(1, &vaoHandle);
-	glBindVertexArray(vaoHandle);
 
 	// Attribute 1: Position
 	GLuint attrib_pos = glGetAttribLocation(program, "position");
@@ -108,24 +99,22 @@ void RailActor::Draw(GLuint program)
 	glBindBuffer(GL_ARRAY_BUFFER, vertextHandle);
 	glVertexAttribPointer(attrib_pos, 3, GL_DOUBLE, GL_FALSE, 0, (void*)0);
 
-	// Attribute 2: Texture
-	GLuint attrib_tex = glGetAttribLocation(program, "texCoord");
-	glEnableVertexAttribArray(attrib_tex);
-	// Bind the texture
-	glBindBuffer(GL_ARRAY_BUFFER, texCoordHandle);
-	glVertexAttribPointer(attrib_tex, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+	//// Attribute 2: Texture
+	//GLuint attrib_tex = glGetAttribLocation(program, "texCoord");
+	//glEnableVertexAttribArray(attrib_tex);
+	//// Bind the texture
+	//glBindBuffer(GL_ARRAY_BUFFER, texCoordHandle);
+	//glVertexAttribPointer(attrib_tex, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
-	glEnable(GL_TEXTURE_2D);
-	glBindTexture(GL_TEXTURE_2D, texHandle);
+	//glEnable(GL_TEXTURE_2D);
+	//glBindTexture(GL_TEXTURE_2D, texHandle);
 
 	// Draw Wireframe
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexHandle);
 	glDrawElements(GL_TRIANGLE_STRIP, indexBuffer.size(), GL_UNSIGNED_INT, (void*)0);
-	glBindVertexArray(0);
-	
 }
 
-void RailActor::initVBOBuffers()
+void CrossActor::initVBOBuffers()
 {
 	glGenBuffers(1, &vertextHandle);
 	glBindBuffer(GL_ARRAY_BUFFER, vertextHandle);

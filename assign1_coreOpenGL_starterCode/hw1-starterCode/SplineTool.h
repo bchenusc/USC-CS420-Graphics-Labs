@@ -37,14 +37,6 @@ Point CatmullRomAlgorithmDerivative(double u, const Point4& b1, const Point4& b2
 	return point;
 }
 
-// Normalizes point p.
-Point Normalize(const Point& outPoint)
-{
-	float length = sqrtf((float)(outPoint.x * outPoint.x + outPoint.y * outPoint.y + outPoint.z * outPoint.z));
-	Point p(outPoint.x / length, outPoint.y / length, outPoint.z / length);
-	return p;
-}
-
 int loadSplines(char * argv, Spline** splines, int& numSplines)
 {
 	char * cName = (char *)malloc(128 * sizeof(char));
