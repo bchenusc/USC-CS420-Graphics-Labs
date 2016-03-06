@@ -20,7 +20,19 @@ struct Point
 	}
 	Point operator -(const Point& p)
 	{
-		return Point(p.x - x, p.y - y, p.z - z);
+		return Point(x - p.x, y - p.y, z - p.z);
+	}
+};
+
+struct Point2
+{
+	double x;
+	double y;
+
+	Point2(double nx, double ny)
+	{
+		x = nx;
+		y = ny;
 	}
 };
 

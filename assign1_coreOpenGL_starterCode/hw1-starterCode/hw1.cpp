@@ -90,18 +90,21 @@ int coasterStep = 0;
 const float coasterMoveSpeed = 0.001f;
 float coasterMoveCounter = 0;
 
+bool pause = false;
 
-const int textureCouns = 2;
+const int textureCounts = 3;
 string textures[] =
 {
 	"./Hw2Textures/ground.jpg",
-	"./Hw2Textures/sky.jpg"
+	"./Hw2Textures/sky.jpg",
+	"./Hw2Textures/rails.jpg",
 };
 
 const int textureHandles[]
 {
 	0, // ground.jpg
 	1, // sky.jpg
+	2, // rails.jpg
 };
 
 SplineActor splineActor;
@@ -111,7 +114,7 @@ PlaneActor skyH1Actor(textureHandles[1], skyHorizVerts1);
 PlaneActor skyH2Actor(textureHandles[1], skyHorizVerts2);
 PlaneActor skyH3Actor(textureHandles[1], skyHorizVerts3);
 PlaneActor skyH4Actor(textureHandles[1], skyHorizVerts4);
-RailActor railActor(splineActor);
+RailActor railActor(textureHandles[2], splineActor);
 
 int main(int argc, char *argv[])
 {
@@ -169,7 +172,7 @@ int main(int argc, char *argv[])
 
 void initTextures()
 {
-	for (int i = 0; i < 2; i++)
+	for (int i = 0; i < textureCounts; i++)
 	{
 		initTextureWrapper(textures[i], textureHandles[i]);
 	}
@@ -279,27 +282,30 @@ void idleFunc()
 	int deltaTime = newTime - oldTime;
 	oldTime = newTime;
 
-	// Move the camera
-	if (coasterMoveCounter <= 0)
+	if (!pause)
 	{
-		coasterMoveCounter = coasterMoveSpeed + coasterMoveCounter;
-		camLookAtEye[0] = (float)splineActor.points[coasterStep].x;
-		camLookAtEye[1] = (float)splineActor.points[coasterStep].y;
-		camLookAtEye[2] = (float)splineActor.points[coasterStep].z;
-
-		if (coasterStep > 0)
+		// Move the camera
+		if (coasterMoveCounter <= 0)
 		{
-			--coasterStep;
-		}
-		else
-		{
-			coasterStep = splineActor.tangents.size() - 1;
-		}
+			coasterMoveCounter = coasterMoveSpeed + coasterMoveCounter;
+			camLookAtEye[0] = (float)splineActor.points[coasterStep].x;
+			camLookAtEye[1] = (float)splineActor.points[coasterStep].y;
+			camLookAtEye[2] = (float)splineActor.points[coasterStep].z;
 
-	}
-	if (coasterMoveCounter <= coasterMoveSpeed)
-	{
-		coasterMoveCounter -= deltaTime;
+			if (coasterStep > 0)
+			{
+				--coasterStep;
+			}
+			else
+			{
+				coasterStep = splineActor.tangents.size() - 1;
+			}
+
+		}
+		if (coasterMoveCounter <= coasterMoveSpeed)
+		{
+			coasterMoveCounter -= deltaTime;
+		}
 	}
 
 	glutPostRedisplay();
@@ -344,12 +350,16 @@ void keyboardFunc(unsigned char key, int x, int y)
 		exit(0); // exit the program
 		break;
 
-	case 'p':
+	case '.':
 		startScreenshotRecording = !startScreenshotRecording;
 		break;
 
 	case 'x':
 		saveScreenshot("screenshot.jpg");
+		break;
+
+	case 'p':
+		pause = !pause;
 		break;
 	}
 }

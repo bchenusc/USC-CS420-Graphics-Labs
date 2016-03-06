@@ -6,7 +6,7 @@ using std::vector;
 
 struct RailActor: public Actor
 {
-	RailActor(SplineActor& spline);
+	RailActor(GLuint texHandle, SplineActor& spline);
 
 	virtual void Init();
 	virtual void Draw(GLuint program);
@@ -14,6 +14,8 @@ struct RailActor: public Actor
 	// VBO Handles
 	GLuint vertextHandle;
 	GLuint indexHandle;
+	GLuint texCoordHandle;
+	GLuint texHandle;
 
 	// VAO Handle
 	GLuint vaoHandle;
@@ -23,12 +25,14 @@ private:
 	SplineActor* refSpline;
 	vector<Point> vertices;
 	vector<unsigned> indexBuffer;
+	vector<Point2> texCoords;
 
-	const double size = 0.1;
+	const double size = 0.05;
 };
 
-RailActor::RailActor(SplineActor& spline)
+RailActor::RailActor(GLuint texHandle, SplineActor& spline)
 {
+	this->texHandle = texHandle;
 	refSpline = &spline;
 }
 
@@ -41,19 +45,20 @@ void RailActor::Init()
 	{
 		Point p = refSpline->points[i];
 		Point n = refSpline->normals[i];
-		Point b = pCross(refSpline->tangents[0], n);
+		Point b = pCross(refSpline->tangents[i], n);
 		vertices.push_back(p + (b - n) * size); //v0
 		vertices.push_back(p + (n + b) * size);	   //v1
 		vertices.push_back(p + ((n - b) * size)); //v2
-		vertices.push_back(p + ((n * -1.0) - b) * size); //v3
+		Point neg = n * -1.0;
+		vertices.push_back(p + (neg - b) * size); //v3
 	}
 
 	for (unsigned int i = 0; i < vertices.size() - 5; ++i)
 	{
 		indexBuffer.push_back(i);
 		indexBuffer.push_back(i+1);
-		indexBuffer.push_back(i+5);
 		indexBuffer.push_back(i+4);
+		indexBuffer.push_back(i+5);
 	}
 	for (unsigned int i = 0; i < refSpline->normals.size() - 1; ++i)
 	{
@@ -61,6 +66,24 @@ void RailActor::Init()
 		indexBuffer.push_back(i+3);
 		indexBuffer.push_back(i+4);
 		indexBuffer.push_back(i+7);
+	}
+
+	for (int i = 0; i < indexBuffer.size(); i++)
+	{
+		switch (i % 4)
+		{
+		case 0:
+			texCoords.push_back(Point2(0, 0));
+			break;
+		case 1:
+			texCoords.push_back(Point2(1, 1));
+			break;
+		case 2:
+			texCoords.push_back(Point2(0, 0));
+			break;
+		case 3:
+			texCoords.push_back(Point2(1, 1));
+		}
 	}
 
 	initVBOBuffers();
@@ -78,20 +101,21 @@ void RailActor::Draw(GLuint program)
 	glBindBuffer(GL_ARRAY_BUFFER, vertextHandle);
 	glVertexAttribPointer(attrib_pos, 3, GL_DOUBLE, GL_FALSE, 0, (void*)0);
 
+	// Attribute 2: Texture
+	GLuint attrib_tex = glGetAttribLocation(program, "texCoord");
+	glEnableVertexAttribArray(attrib_tex);
+	// Bind the texture
+	glBindBuffer(GL_ARRAY_BUFFER, texCoordHandle);
+	glVertexAttribPointer(attrib_tex, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, texHandle);
+
 	// Draw Wireframe
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexHandle);
-	glDrawElements(GL_QUADS, indexBuffer.size(), GL_UNSIGNED_INT, (void*)0);
+	glDrawElements(GL_TRIANGLE_STRIP, indexBuffer.size(), GL_UNSIGNED_INT, (void*)0);
 	glBindVertexArray(0);
-
-	// Attribute 2: Texture
-	//GLuint attrib_tex = glGetAttribLocation(program, "texCoord");
-	//glEnableVertexAttribArray(attrib_tex);
-	// Bind the texture
-	//glBindBuffer(GL_ARRAY_BUFFER, texCoordHandle);
-	//glVertexAttribPointer(attrib_tex, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
-
-	//glEnable(GL_TEXTURE_2D);
-	//glBindTexture(GL_TEXTURE_2D, texHandle);
+	
 }
 
 void RailActor::initVBOBuffers()
@@ -103,4 +127,8 @@ void RailActor::initVBOBuffers()
 	glGenBuffers(1, &indexHandle);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexHandle);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBuffer.size() * sizeof(unsigned int), &indexBuffer[0], GL_STATIC_DRAW);
+
+	glGenBuffers(1, &texCoordHandle);
+	glBindBuffer(GL_ARRAY_BUFFER, texCoordHandle);
+	glBufferData(GL_ARRAY_BUFFER, texCoords.size() * sizeof(Point2), &texCoords[0], GL_STATIC_DRAW);
 }
