@@ -1,12 +1,14 @@
 #pragma once
-#include "SplineActor.h"
 #include <vector>
+
+#include "SplineActor.h"
+#include "Point.h"
 
 using std::vector;
 
 struct RailActor: public Actor
 {
-	RailActor(GLuint texHandle, SplineActor& spline);
+	RailActor(GLuint texHandle, SplineActor& spline, double offset);
 
 	virtual void Init();
 	virtual void Draw(GLuint program);
@@ -28,12 +30,14 @@ private:
 	vector<Point2> texCoords;
 
 	const double size = 0.05;
+	double offset;
 };
 
-RailActor::RailActor(GLuint texHandle, SplineActor& spline)
+RailActor::RailActor(GLuint texHandle, SplineActor& spline, double offset)
 {
 	this->texHandle = texHandle;
 	refSpline = &spline;
+	this->offset = offset;
 }
 
 void RailActor::Init()
@@ -46,11 +50,11 @@ void RailActor::Init()
 		Point p = refSpline->points[i];
 		Point n = refSpline->normals[i];
 		Point b = pCross(refSpline->tangents[i], n);
-		vertices.push_back(p + (b - n) * size); //v0
-		vertices.push_back(p + (n + b) * size);	   //v1
-		vertices.push_back(p + ((n - b) * size)); //v2
+		vertices.push_back(b * offset + p + (b - n) * size); //v0
+		vertices.push_back(b * offset + p + (n + b) * size);	   //v1
+		vertices.push_back(b * offset + p + ((n - b) * size)); //v2
 		Point neg = n * -1.0;
-		vertices.push_back(p + (neg - b) * size); //v3
+		vertices.push_back(b * offset + p + (neg - b) * size); //v3
 	}
 
 	for (unsigned int i = 0; i < vertices.size() - 5; ++i)
@@ -68,7 +72,7 @@ void RailActor::Init()
 		indexBuffer.push_back(i+7);
 	}
 
-	for (int i = 0; i < indexBuffer.size(); i++)
+	for (unsigned int i = 0; i < indexBuffer.size(); i++)
 	{
 		switch (i % 4)
 		{

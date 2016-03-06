@@ -114,7 +114,8 @@ PlaneActor skyH1Actor(textureHandles[1], skyHorizVerts1);
 PlaneActor skyH2Actor(textureHandles[1], skyHorizVerts2);
 PlaneActor skyH3Actor(textureHandles[1], skyHorizVerts3);
 PlaneActor skyH4Actor(textureHandles[1], skyHorizVerts4);
-RailActor railActor(textureHandles[2], splineActor);
+RailActor railActor(textureHandles[2], splineActor, -0.5);
+RailActor railActor2(textureHandles[2], splineActor, 0.5);
 
 int main(int argc, char *argv[])
 {
@@ -209,6 +210,7 @@ void initActors()
 	skyH3Actor.Init();
 	skyH4Actor.Init();
 	railActor.Init();
+	railActor2.Init();
 }
 
 void drawActors()
@@ -221,6 +223,7 @@ void drawActors()
 	skyH3Actor.Draw(program);
 	skyH4Actor.Draw(program);
 	railActor.Draw(program);
+	railActor2.Draw(program);
 }
 
 void initPipelineProgram()
