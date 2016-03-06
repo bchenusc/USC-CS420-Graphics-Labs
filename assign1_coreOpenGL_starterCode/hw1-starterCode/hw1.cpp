@@ -23,6 +23,7 @@
 #include "PlanePlacements.h"
 #include "SplineActor.h"
 #include "Textures.h"
+#include "RailActor.h"
 
 #ifdef WIN32
 #ifdef _DEBUG
@@ -89,7 +90,6 @@ int coasterStep = 0;
 const float coasterMoveSpeed = 0.001f;
 float coasterMoveCounter = 0;
 
-SplineActor splineActor;
 
 const int textureCouns = 2;
 string textures[] =
@@ -104,12 +104,14 @@ const int textureHandles[]
 	1, // sky.jpg
 };
 
+SplineActor splineActor;
 PlaneActor groundActor(textureHandles[0], groundVertices);
 PlaneActor skyTopActor(textureHandles[1], skyTopVertices);
 PlaneActor skyH1Actor(textureHandles[1], skyHorizVerts1);
 PlaneActor skyH2Actor(textureHandles[1], skyHorizVerts2);
 PlaneActor skyH3Actor(textureHandles[1], skyHorizVerts3);
 PlaneActor skyH4Actor(textureHandles[1], skyHorizVerts4);
+RailActor railActor(splineActor);
 
 int main(int argc, char *argv[])
 {
@@ -203,6 +205,7 @@ void initActors()
 	skyH2Actor.Init();
 	skyH3Actor.Init();
 	skyH4Actor.Init();
+	railActor.Init();
 }
 
 void drawActors()
@@ -214,6 +217,7 @@ void drawActors()
 	skyH2Actor.Draw(program);
 	skyH3Actor.Draw(program);
 	skyH4Actor.Draw(program);
+	railActor.Draw(program);
 }
 
 void initPipelineProgram()

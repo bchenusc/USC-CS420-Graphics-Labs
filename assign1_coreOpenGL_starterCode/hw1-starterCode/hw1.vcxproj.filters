@@ -92,6 +92,9 @@
     <ClInclude Include="PlaneActor.h">
       <Filter>Header Files\Actors</Filter>
     </ClInclude>
+    <ClInclude Include="RailActor.h">
+      <Filter>Header Files\Actors</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\openGLHelper-starterCode\basic.fragmentShader.glsl">
