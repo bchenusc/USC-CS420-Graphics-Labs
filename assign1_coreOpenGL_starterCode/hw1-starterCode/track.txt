@@ -1,1 +1,1 @@
-1splines/rollercoaster.sp
+1splines/goodRide.sp

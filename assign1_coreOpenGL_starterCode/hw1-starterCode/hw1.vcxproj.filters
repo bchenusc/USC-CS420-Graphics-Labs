@@ -98,9 +98,6 @@
     <ClInclude Include="CrossActor.h">
       <Filter>Header Files\Actors</Filter>
     </ClInclude>
-    <ClInclude Include="CrossActorManager.h">
-      <Filter>Header Files\Actors</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\openGLHelper-starterCode\basic.fragmentShader.glsl">

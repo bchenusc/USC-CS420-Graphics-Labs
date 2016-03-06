@@ -28,7 +28,6 @@
     <ClInclude Include="Actor.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="CrossActor.h" />
-    <ClInclude Include="CrossActorManager.h" />
     <ClInclude Include="RailActor.h" />
     <ClInclude Include="PlaneActor.h" />
     <ClInclude Include="PlanePlacements.h" />

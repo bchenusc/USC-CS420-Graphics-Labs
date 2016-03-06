@@ -24,7 +24,7 @@
 #include "SplineActor.h"
 #include "Textures.h"
 #include "RailActor.h"
-#include "CrossActorManager.h"
+#include "CrossActor.h"
 
 #ifdef WIN32
 #ifdef _DEBUG
@@ -120,7 +120,7 @@ PlaneActor skyH3Actor(textureHandles[1], skyHorizVerts3);
 PlaneActor skyH4Actor(textureHandles[1], skyHorizVerts4);
 RailActor railActor(textureHandles[2], splineActor, -railSplitSize);
 RailActor railActor2(textureHandles[2], splineActor, railSplitSize);
-CrossActorManager crossManager(textureHandles[2], RAIL_SIZE, &splineActor);
+CrossActor crossManager(textureHandles[3], splineActor);
 
 int main(int argc, char *argv[])
 {

@@ -8,7 +8,7 @@ using std::vector;
 
 struct CrossActor : public Actor
 {
-	CrossActor(GLuint texHandle, SplineActor* spline);
+	CrossActor(GLuint texHandle, SplineActor& spline);
 
 	virtual void Init();
 	virtual void Draw(GLuint program);
@@ -19,7 +19,8 @@ struct CrossActor : public Actor
 	GLuint texCoordHandle;
 	GLuint texHandle;
 
-	
+	// VAO Handle
+	GLuint vaoHandle;
 
 private:
 	void initVBOBuffers();
@@ -28,39 +29,68 @@ private:
 
 	vector<unsigned> indexBuffer;
 	vector<Point2> texCoords;
-
-	const double size = 20.0f;
-
 };
 
-CrossActor::CrossActor(GLuint texHandle, SplineActor* spline)
+CrossActor::CrossActor(GLuint texHandle, SplineActor& spline)
 {
 	this->texHandle = texHandle;
-	refSpline = spline;
+	refSpline = &spline;
 }
 
 void CrossActor::Init()
 {
-	for (unsigned int i = 0; i < 2; ++i)
+	vertices.reserve(refSpline->normals.size() * 4);
+	indexBuffer.reserve(refSpline->normals.size() * 4);
+
+	static const double  newMultiplier = 0.1;
+	static const int modulusFilter = 5;
+	static const int binormalMultiplier = 50;
+	int multiplier = 1;
+	int biMultiplier = 1;
+	bool nextMultiplier = false;
+
+	for (unsigned int i = 0; i < refSpline->normals.size(); ++i)
 	{
+
+		if (i % modulusFilter == 0)
+		{
+			multiplier = newMultiplier;
+			biMultiplier = binormalMultiplier;
+			nextMultiplier = true;
+		}
+		else
+		{
+			if (i % modulusFilter != 0 && nextMultiplier)
+			{
+				nextMultiplier = false;
+				multiplier = newMultiplier;
+				biMultiplier = binormalMultiplier;
+			}
+			else
+			{
+				multiplier = 1;
+				biMultiplier = 9;
+			}
+		}
+
 		Point p = refSpline->points[i];
 		Point n = refSpline->normals[i];
 		Point b = pCross(refSpline->tangents[i], n);
-		vertices.push_back(p + (b - n) * size);		//v0
-		vertices.push_back(p + (n + b) * size);		//v1
-		vertices.push_back(p + ((n - b) * size));	//v2
+		vertices.push_back(p + ((b * biMultiplier) - n) * RAIL_SIZE * multiplier); //v0
+		vertices.push_back(p + (n + (b * biMultiplier)) * RAIL_SIZE * multiplier); //v1
+		vertices.push_back(p + ((n - (b * biMultiplier)) * RAIL_SIZE * multiplier)); //v2
 		Point neg = n * -1.0;
-		vertices.push_back(p + (neg - b) * size);	//v3
+		vertices.push_back(p + (neg - (b * biMultiplier)) * RAIL_SIZE * multiplier); //v3
 	}
 
-	for (unsigned int i = 0; i < 8 /*Number of vertices*/ - 5 /*Loop unrolling*/; ++i)
+	for (unsigned int i = 0; i < vertices.size() - 5; ++i)
 	{
 		indexBuffer.push_back(i);
 		indexBuffer.push_back(i + 1);
 		indexBuffer.push_back(i + 4);
 		indexBuffer.push_back(i + 5);
 	}
-	for (unsigned int i = 0; i < 2 /*Number of normals*/ - 1; ++i)
+	for (unsigned int i = 0; i < refSpline->normals.size() - 1; ++i)
 	{
 		indexBuffer.push_back(i);
 		indexBuffer.push_back(i + 3);
@@ -92,6 +122,8 @@ void CrossActor::Init()
 void CrossActor::Draw(GLuint program)
 {
 	// Bind VAO
+	glGenVertexArrays(1, &vaoHandle);
+	glBindVertexArray(vaoHandle);
 
 	// Attribute 1: Position
 	GLuint attrib_pos = glGetAttribLocation(program, "position");
@@ -99,19 +131,21 @@ void CrossActor::Draw(GLuint program)
 	glBindBuffer(GL_ARRAY_BUFFER, vertextHandle);
 	glVertexAttribPointer(attrib_pos, 3, GL_DOUBLE, GL_FALSE, 0, (void*)0);
 
-	//// Attribute 2: Texture
-	//GLuint attrib_tex = glGetAttribLocation(program, "texCoord");
-	//glEnableVertexAttribArray(attrib_tex);
-	//// Bind the texture
-	//glBindBuffer(GL_ARRAY_BUFFER, texCoordHandle);
-	//glVertexAttribPointer(attrib_tex, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+	// Attribute 2: Texture
+	GLuint attrib_tex = glGetAttribLocation(program, "texCoord");
+	glEnableVertexAttribArray(attrib_tex);
+	// Bind the texture
+	glBindBuffer(GL_ARRAY_BUFFER, texCoordHandle);
+	glVertexAttribPointer(attrib_tex, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
-	//glEnable(GL_TEXTURE_2D);
-	//glBindTexture(GL_TEXTURE_2D, texHandle);
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, texHandle);
 
 	// Draw Wireframe
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexHandle);
 	glDrawElements(GL_TRIANGLE_STRIP, indexBuffer.size(), GL_UNSIGNED_INT, (void*)0);
+	glBindVertexArray(0);
+
 }
 
 void CrossActor::initVBOBuffers()

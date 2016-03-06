@@ -60,7 +60,7 @@ void RailActor::Init()
 		vertices.push_back(b * offset + p + (neg - b) * RAIL_SIZE); //v3
 	}
 
-	for (unsigned int i = 0; i < vertices.size() - 5; ++i)
+	for (unsigned int i = 0; i < vertices.size() - 8; ++i)
 	{
 		indexBuffer.push_back(i);
 		indexBuffer.push_back(i+1);
