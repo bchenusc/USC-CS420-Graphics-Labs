@@ -28,6 +28,57 @@ Triangle* TriangleIntersector::TestIntersectionArray(const Vector3& ray, const V
 	return triangleCache;
 }
 
+void TriangleIntersector::CalculateColor(const Vector3& P, const Triangle& triangle, Vector3& outDiffuse, Vector3& outSpecular, Vector3& outNormal, double& outShininess)
+{
+	// Conversions:
+	Vector3 R(triangle.v[0].position[0], triangle.v[0].position[1], triangle.v[0].position[2]);
+	Vector3 G(triangle.v[1].position[0], triangle.v[1].position[1], triangle.v[1].position[2]);
+	Vector3 B(triangle.v[2].position[0], triangle.v[2].position[1], triangle.v[2].position[2]);
+	Vector3 Rcol(triangle.v[0].color_diffuse[0], triangle.v[0].color_diffuse[1], triangle.v[0].color_diffuse[2]);
+	Vector3 Gcol(triangle.v[1].color_diffuse[0], triangle.v[1].color_diffuse[1], triangle.v[1].color_diffuse[2]);
+	Vector3 Bcol(triangle.v[2].color_diffuse[0], triangle.v[2].color_diffuse[1], triangle.v[2].color_diffuse[2]);
+	Vector3 Rspec(triangle.v[0].color_specular[0], triangle.v[0].color_specular[1], triangle.v[0].color_specular[2]);
+	Vector3 Gspec(triangle.v[1].color_specular[0], triangle.v[1].color_specular[1], triangle.v[1].color_specular[2]);
+	Vector3 Bspec(triangle.v[2].color_specular[0], triangle.v[2].color_specular[1], triangle.v[2].color_specular[2]);
+	Vector3 Rnorm(triangle.v[0].normal[0], triangle.v[0].normal[1], triangle.v[0].normal[2]);
+	Vector3 Gnorm(triangle.v[1].normal[0], triangle.v[1].normal[1], triangle.v[1].normal[2]);
+	Vector3 Bnorm(triangle.v[2].normal[0], triangle.v[2].normal[1], triangle.v[2].normal[2]);
+	double Rshiny = triangle.v[0].shininess;
+	double Gshiny = triangle.v[1].shininess;
+	double Bshiny = triangle.v[2].shininess;
+
+	Vector3 RG = G.Subtract(R);
+	Vector3 GB = B.Subtract(G);
+	Vector3 RB = B.Subtract(R);
+
+	// See: https://classes.soe.ucsc.edu/cmps160/Fall10/resources/barycentricInterpolation.pdf
+	// Total Area
+	Vector3 VxW = RG.Cross(RB);
+	double totalArea = Vector3::Magnitude(VxW) * 0.5;
+
+	// Area of Red
+	Vector3 GBxGP = GB.Cross(P.Subtract(G));
+	double redArea = Vector3::Magnitude(GBxGP) * 0.5;
+
+	// Area of Green
+	Vector3 RBxRP = RB.Cross(P.Subtract(R));
+	double greenArea = Vector3::Magnitude(RBxRP) * 0.5;
+
+	// Area of Blue
+	Vector3 RGxRP = RG.Cross(P.Subtract(R));
+	double blueArea = Vector3::Magnitude(RGxRP) * 0.5;
+
+	// Weighted color
+	double percentRed = redArea / totalArea;
+	double percentGreen = greenArea / totalArea;
+	double percentBlue = blueArea / totalArea;
+
+	outDiffuse =  Rcol.Multiply(percentRed).Add(Gcol.Multiply(percentGreen)).Add(Bcol.Multiply(percentBlue));
+	outSpecular = Rspec.Multiply(percentRed).Add(Gspec.Multiply(percentGreen)).Add(Bspec.Multiply(percentBlue));
+	outNormal = Rnorm.Multiply(percentRed).Add(Gnorm.Multiply(percentGreen)).Add(Bnorm.Multiply(percentBlue));
+	outShininess = Rshiny * percentRed + Gshiny * percentGreen + Bshiny * percentBlue;
+}
+
 Vector3 TriangleIntersector::CalculateLighting(const Vector3& origin, const Triangle& triangle,
 	const Vector3& P/*intersection*/, Light* lights, unsigned count, Sphere* spheres, int num_spheres,
 	Triangle* triangles, int num_triangles)
@@ -35,16 +86,14 @@ Vector3 TriangleIntersector::CalculateLighting(const Vector3& origin, const Tria
 	Vector3 A(triangle.v[0].position[0], triangle.v[0].position[1], triangle.v[0].position[2]);
 	Vector3 B(triangle.v[1].position[0], triangle.v[1].position[1], triangle.v[1].position[2]);
 	Vector3 C(triangle.v[2].position[0], triangle.v[2].position[1], triangle.v[2].position[2]);
-	Vector3 AB = B.Subtract(A);
-	Vector3 AC = C.Subtract(A);
-	Vector3 N = AB.Cross(C.Subtract(A));
-	Vector3::Normalize(N);
 
-	// See: https://classes.soe.ucsc.edu/cmps160/Fall10/resources/barycentricInterpolation.pdf
-	// Descart and Fermat area of a triangle
-	Vector3 sphereColor(triangle.v[0].color_diffuse[0], triangle.v[0].color_diffuse[1], triangle.v[0].color_diffuse[2]);
-	Vector3 sphereSpec(triangle.v[0].color_specular[0], triangle.v[0].color_specular[1], triangle.v[0].color_specular[2]);
-	double shininess = triangle.v[0].shininess;
+	// Color interpolation
+	Vector3 triangleColor;
+	Vector3 triangleSpec;
+	Vector3 N;
+	double triangleShiny;
+	CalculateColor(P, triangle, triangleColor, triangleSpec, N, triangleShiny);
+	Vector3::Normalize(N);
 
 	// Lighting
 	Vector3 phong(AMBIENT_COLOR / 255.0, AMBIENT_COLOR / 255.0, AMBIENT_COLOR / 255.0);
@@ -63,11 +112,10 @@ Vector3 TriangleIntersector::CalculateLighting(const Vector3& origin, const Tria
 		Vector3 V = origin.Subtract(P);
 		Vector3::Normalize(V);
 
-		//if (!isShadowedPixelT(lightPosition, P, spheres, num_spheres, triangles, num_triangles))
+		if (!isShadowedPixelT(lightPosition, P, spheres, num_spheres, triangles, num_triangles))
 		{
-			double NdotL = N.Dot(L);
-			phong = phong.Add(sphereColor.Multiply(MathTools::Saturate(NdotL)));
-			phong = phong.Add(sphereSpec.Multiply(pow(MathTools::Saturate(R.Dot(V)), shininess)));
+			phong = phong.Add(triangleColor.Multiply(MathTools::Saturate(L.Dot(N))));
+			phong = phong.Add(triangleSpec.Multiply(pow(MathTools::Saturate(R.Dot(V)), triangleShiny)));
 			phong = lightColor.Multiply(phong);
 		}
 	}
@@ -97,12 +145,15 @@ bool TriangleIntersector::TestIntersection(const Vector3& ray, const Vector3& or
 	double t = -1 * (origin.Dot(N) + d) / VDotN;
 	Vector3 P = origin.Add(ray.Multiply(t));
 
+	Vector3 direction = P.Subtract(origin);
+	if (direction.Dot(ray) <= 0.01) return false;
+
 	Vector3 ABxAP = AB.Cross(P.Subtract(A));
 	Vector3 BCxBP = C.Subtract(B).Cross(P.Subtract(B));
 	Vector3 CAxCP = A.Subtract(C).Cross(P.Subtract(C));
 
-	if (ABxAP.Dot(BCxBP) > 0 && ABxAP.Dot(CAxCP) > 0 && BCxBP.Dot(CAxCP) > 0
-		|| ABxAP.Dot(BCxBP) < 0 && ABxAP.Dot(CAxCP) < 0 && BCxBP.Dot(CAxCP) < 0)
+	if (ABxAP.Dot(BCxBP) > 0.0 && ABxAP.Dot(CAxCP) > 0.0 && BCxBP.Dot(CAxCP) > 0.0
+		|| ABxAP.Dot(BCxBP) <= -0.01 && ABxAP.Dot(CAxCP) <= -0.01 && BCxBP.Dot(CAxCP) <= -0.01)
 	{
 		outIntersectionPoint = P;
 		return true;

@@ -31,6 +31,11 @@ struct Vector3
 		v.z = -v.z;
 	}
 
+	static double Magnitude(Vector3& v)
+	{
+		return sqrt(v.Dot(v));
+	}
+
 	static Vector3 Reflect(const Vector3& v, const Vector3& n)
 	{
 		return v.Subtract(n.Multiply(2 * v.Dot(n)));

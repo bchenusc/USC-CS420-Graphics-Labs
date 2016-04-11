@@ -138,7 +138,6 @@ bool intersectScene(int x, int y, const Vector3& ray)
 		plot_pixel(x, y, (char)(phong.x * MAX_COLOR), (char)(phong.y * MAX_COLOR), (char)(phong.z * MAX_COLOR));
 		return true;
 	}
-
 	return false;
 }
 

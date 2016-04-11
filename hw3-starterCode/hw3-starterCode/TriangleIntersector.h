@@ -16,8 +16,13 @@ struct TriangleIntersector
 
 private:
 	// Returns true if successfully intersects.
-	bool TriangleIntersector::TestIntersection(const Vector3& ray, const Vector3& origin, const Triangle& triangle,
+	bool TestIntersection(const Vector3& ray, const Vector3& origin, const Triangle& triangle,
 		Vector3& outIntersectionPoint) const;
-	bool isShadowedPixelT(const Vector3& lightPosition, const Vector3& intersection, Sphere* spheres, unsigned num_spheres, Triangle* triangles, unsigned num_triangles);
+
+	bool isShadowedPixelT(const Vector3& lightPosition, const Vector3& intersection, 
+		Sphere* spheres, unsigned num_spheres, Triangle* triangles, unsigned num_triangles);
+
+	void CalculateColor(const Vector3& P, const Triangle& triangle, Vector3& outDiffuse, 
+		Vector3& outSpecular, Vector3& outNormal, double& outShininess);
 };
 

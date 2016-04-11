@@ -96,7 +96,7 @@ bool SphereIntersector::isShadowedPixelS(const Vector3& lightPosition, const Vec
 
 	TriangleIntersector triIntersector;
 	Vector3 outTriangleIntersectionPoint;
-	Triangle* triIntersect = NULL; // triIntersector.TestIntersectionArray(ray, intersection, triangles, num_triangles, outTriangleIntersectionPoint);
+	Triangle* triIntersect = triIntersector.TestIntersectionArray(ray, intersection, triangles, num_triangles, outTriangleIntersectionPoint);
 
 	Vector3 outSphereIntersectionPoint;
 	Sphere* sphIntersect = TestIntersectionArray(ray, intersection, spheres, num_spheres, outSphereIntersectionPoint);
