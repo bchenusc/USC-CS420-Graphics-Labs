@@ -2,6 +2,7 @@
 #include "Defines.h"
 #include <math.h>
 #include "Vector3.h"
+#include "Light.h"
 
 struct Sphere
 {
@@ -18,12 +19,13 @@ struct SphereIntersector
 	Sphere* TestIntersectionArray(const Vector3& ray, const Vector3& origin, Sphere* sphereArray, unsigned count, Vector3& outIntersectionPoint);
 	
 	// Returns the saturated phong values.
-	Vector3 SphereIntersector::CalculateLighting(const Vector3& origin, const Sphere& sphere, const Vector3& P/*intersection*/, Light* lights, unsigned count);
+	Vector3 CalculateLighting(const Vector3& origin, const Sphere& sphere,
+		const Vector3& P/*intersection*/, Light* lights, unsigned count, Sphere* spheres, int num_spheres,
+		Triangle* triangles, int num_triangles);
 
 private:
 	// Returns true if successfully intersects.
 	bool TestIntersection(const Vector3& ray, const Vector3& origin, Sphere& sphere, Vector3& outIntersectionPoint) const;
-
 };
 
 Sphere* SphereIntersector::TestIntersectionArray(const Vector3& ray, const Vector3& origin, Sphere* sphereArray, unsigned count, Vector3& outIntersectionPoint)
@@ -72,8 +74,27 @@ bool SphereIntersector::TestIntersection(const Vector3& ray, const Vector3& orig
 	return true;
 }
 
+bool isShadowedPixel(const Vector3& lightPosition, const Vector3& intersection, Sphere* spheres, unsigned num_spheres)
+{
+	Vector3 ray = lightPosition.Subtract(intersection);
+	Vector3::Normalize(ray);
+	Vector3 outIntersectionPoint;
+
+	// TODO: Triangle check.
+
+	SphereIntersector sphereIntersector;
+	Sphere* sphIntersect = sphereIntersector.TestIntersectionArray(ray, intersection, spheres, num_spheres, outIntersectionPoint);
+	if (sphIntersect != NULL)
+	{
+		// Light should not contribute to pixel.
+		return true;
+	}
+	return false;
+}
+
 Vector3 SphereIntersector::CalculateLighting(const Vector3& origin, const Sphere& sphere, 
-	const Vector3& P/*intersection*/, Light* lights, unsigned count)
+	const Vector3& P/*intersection*/, Light* lights, unsigned count, Sphere* spheres, int num_spheres,
+	Triangle* triangles, int num_triangles)
 {
 	Vector3 spherePos(sphere.position[0], sphere.position[1], sphere.position[2]);
 
@@ -98,7 +119,7 @@ Vector3 SphereIntersector::CalculateLighting(const Vector3& origin, const Sphere
 		Vector3 V = origin.Subtract(P); 
 		Vector3::Normalize(V);
 
-		//if (!isShadowedPixel(x, y, lightPosition, P))
+		if (!isShadowedPixel(lightPosition, P, spheres, num_spheres))
 		{
 			double NdotL = N.Dot(L);
 			phong = phong.Add(sphereColor.Multiply(Saturate(NdotL)));

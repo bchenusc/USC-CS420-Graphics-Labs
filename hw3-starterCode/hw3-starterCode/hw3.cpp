@@ -114,8 +114,9 @@ bool intersectScene(int x, int y, const Vector3& ray)
 	if (sphIntersect != NULL)
 	{
 		// A sphere gets intersected.
-		Vector3 phong = sphereIntersector.CalculateLighting(cameraPos, *sphIntersect, outIntersectionPoint, lights, num_lights);
-		plot_pixel(x, y, phong.x * MAX_COLOR, phong.y * MAX_COLOR, phong.z * MAX_COLOR);
+		Vector3 phong = sphereIntersector.CalculateLighting(cameraPos, *sphIntersect, outIntersectionPoint, lights, num_lights,
+			spheres, num_spheres, triangles, num_triangles);
+		plot_pixel(x, y, (char)(phong.x * MAX_COLOR), (char)(phong.y * MAX_COLOR), (char)(phong.z * MAX_COLOR));
 		return true;
 	}
 	return false;
