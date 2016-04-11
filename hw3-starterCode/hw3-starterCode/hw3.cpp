@@ -51,7 +51,7 @@ int mode = MODE_DISPLAY;
 #define MAX_RAYCAST_DIST 10000.0
 
 #define MAX_COLOR 255
-#define AMBIENT_COLOR 50
+#define AMBIENT_COLOR 0
 
 unsigned char buffer[HEIGHT][WIDTH][3];
 
@@ -115,6 +115,15 @@ Vector3 Multiply(const Vector3& v, double scalar)
 	return Vector3(v.x * scalar, v.y * scalar, v.z * scalar);
 }
 
+Vector3 Multiply(const Vector3& a, const Vector3& b)
+{
+	Vector3 retVal;
+	retVal.x = a.x * b.x;
+	retVal.y = a.y * b.y;
+	retVal.z = a.z * b.z;
+	return retVal;
+}
+
 Vector3 Negate(const Vector3& v)
 {
 	return Vector3(-v.x, -v.y, -v.z);
@@ -142,20 +151,23 @@ void Cross(const Vector3& a, const Vector3& b, Vector3& out)
 	out.z = a.x * b.y - a.y * b.x;
 }
 
-Vector3 Reflect(const Vector3& v, const Vector3& n)
+double Saturate(double i)
 {
-
-	return Sub(v, Multiply(n, 2 * Dot(v, n)));
+	if (i <= 0) return 0;
+	if (i >= 1) return 1;
+	return i;
 }
 
-Vector3 Normalize(const Vector3& a)
+void Saturate(Vector3& v)
 {
-	double length = sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
-	Vector3 v;
-	v.x = v.x / length;
-	v.y = v.y / length;
-	v.z = v.z / length;
-	return v;
+	v.x = Saturate(v.x);
+	v.y = Saturate(v.y);
+	v.z = Saturate(v.z);
+}
+
+Vector3 Reflect(const Vector3& v, const Vector3& n)
+{
+	return Sub(v, Multiply(n, 2 * Dot(v, n)));
 }
 
 Triangle triangles[MAX_TRIANGLES];
@@ -173,7 +185,9 @@ void plot_pixel(int x,int y,unsigned char r,unsigned char g,unsigned char b);
 
 bool handle_object_intersection(int x, int y, Vector3& ray, Vector3& outIntersection);
 bool ray_intersect_triangle(int x, int y, Vector3& ray, Triangle& triangle, Vector3& out);
-bool ray_intersect_sphere(int x, int y, Vector3& ray, Sphere& sphere, Vector3& out);
+bool ray_intersect_triangle_wrapper(int x, int y, Vector3& ray, Triangle& triangle, Vector3& out);
+bool ray_intersect_sphere(const Vector3& camera, int x, int y, Vector3& ray, Sphere& sphere, Vector3& out, Vector3& outPhong);
+bool ray_intersect_sphere_wrapper(int x, int y, Vector3& ray, Sphere& sphere, Vector3& out);
 
 //MODIFY THIS FUNCTION
 void draw_scene()
@@ -208,15 +222,27 @@ bool handle_object_intersection(int x, int y, Vector3& ray, Vector3& outIntersec
 
 	for (int i = 0; i < num_triangles; ++i)
 	{
-		intersects |= ray_intersect_triangle(x, y, ray, triangles[i], outIntersection);
+		intersects |= ray_intersect_triangle_wrapper(x, y, ray, triangles[i], outIntersection);
 	}
-
 	for (int i = 0; i < num_spheres; ++i)
 	{
-		intersects |= ray_intersect_sphere(x, y, ray, spheres[i], outIntersection);
+		intersects |= ray_intersect_sphere_wrapper(x, y, ray, spheres[i], outIntersection);
 	}
 	
 	return intersects;
+}
+
+bool ray_intersect_triangle_wrapper(int x, int y, Vector3& ray, Triangle& triangle, Vector3& out)
+{
+	if (ray_intersect_triangle(x, y, ray, triangle, out))
+	{
+		plot_pixel(x, y,
+			0,
+			0,
+			0);
+		return true;
+	}
+	return false;
 }
 
 bool ray_intersect_triangle(int x, int y, Vector3& ray, Triangle& triangle, Vector3& out)
@@ -261,20 +287,53 @@ bool ray_intersect_triangle(int x, int y, Vector3& ray, Triangle& triangle, Vect
 			|| Dot(ABxAP, BCxBP) < 0 && Dot(ABxAP, CAxCP) < 0 && Dot(BCxBP, CAxCP) < 0)
 		{
 			out = P;
-			plot_pixel(x, y, 
-				triangle.v[0].color_diffuse[0], 
-				triangle.v[0].color_diffuse[0],
-				triangle.v[0].color_diffuse[0]);
 			return true;
 		}
 	}
-	
 	return false;
 }
 
-bool ray_intersect_sphere(int x, int y, Vector3& v,  Sphere& sphere, Vector3& out)
+bool ray_intersect_sphere_wrapper(int x, int y, Vector3& v, Sphere& sphere, Vector3& out)
+{
+	Vector3 outPhong;
+	Vector3 camera(0, 0, 0);
+	if (ray_intersect_sphere(camera, x, y, v, sphere, out, outPhong))
+	{
+		plot_pixel(x, y,
+			outPhong.x * MAX_COLOR,
+			outPhong.y * MAX_COLOR,
+			outPhong.z * MAX_COLOR);
+		return true;
+	}
+	return false;
+}
+
+bool isShadowedPixel(int x, int y, const Vector3& lightPosition, const Vector3& intersection)
+{
+	Vector3 ray = Sub(lightPosition, intersection);
+	Vector3 outIntersection;
+	Vector3 outPhong;
+	for (int i = 0; i < num_triangles; ++i)
+	{
+		if (ray_intersect_triangle(x, y, ray, triangles[i], outIntersection))
+		{
+			return true;
+		}
+	}
+	for (int i = 0; i < num_spheres; ++i)
+	{
+		if (ray_intersect_sphere(intersection, x, y, ray, spheres[i], outIntersection, outPhong))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool ray_intersect_sphere(const Vector3& camera, int x, int y, Vector3& v,  Sphere& sphere, Vector3& out, Vector3& outPhong)
 {
 	Vector3 sphere_position(sphere.position[0], sphere.position[1], sphere.position[2]);
+	sphere_position = Sub(sphere_position, camera);
 	double opposite = Dot(sphere_position, v);
 
 	// Sphere is in opposite direction aka behind camera.
@@ -294,28 +353,31 @@ bool ray_intersect_sphere(int x, int y, Vector3& v,  Sphere& sphere, Vector3& ou
 	if (P.z >= out.z)
 	{
 		out = P;
-		
 		// Lighting
-		/*
 		Vector3 phong(AMBIENT_COLOR, AMBIENT_COLOR, AMBIENT_COLOR);
 		for (int i = 0; i < num_lights; ++i)
 		{
 			// Conversion to Vector3s
 			Vector3 lightPosition(lights[i].position[0], lights[i].position[1], lights[i].position[2]);
-			
+			Vector3 lightColor(lights[i].color[0],lights[i].color[1], lights[i].color[2]);
+			Vector3 color(sphere.color_diffuse[0], sphere.color_diffuse[1], sphere.color_diffuse[2]);
+			Vector3 specular(sphere.color_specular[0], sphere.color_specular[1], sphere.color_specular[2]);
+
 			// Lighting calculations
 			Vector3 L = Sub(lightPosition, P); Vector3::Normalize(L);
-			Vector3 N = Sub(P, sphere_position);
-			Vector3 R = 
+			Vector3 N = Sub(P, sphere_position); Vector3::Normalize(N);
+			Vector3 R = Reflect(Negate(L), N);
+			Vector3 V = Sub(camera, P); Vector3::Normalize(V);
 
-
+			if (!isShadowedPixel(x, y, lightPosition, P))
+			{
+				phong = Add(phong, Multiply(color, Saturate(Dot(N, L))));
+				phong = Add(phong, Multiply(specular, pow(Saturate(Dot(R, V)), sphere.shininess)));
+				phong = Multiply(lightColor, phong);
+			}
 		}
-		*/
-
-		plot_pixel(x, y, 
-			sphere.color_diffuse[0] * MAX_COLOR, 
-			sphere.color_diffuse[1] * MAX_COLOR,
-			sphere.color_diffuse[2] * MAX_COLOR);
+		outPhong = phong;
+		Saturate(outPhong);
 		return true;
 	}
 	return false;
