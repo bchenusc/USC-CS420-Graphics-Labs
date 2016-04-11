@@ -184,10 +184,7 @@ void plot_pixel_jpeg(int x,int y,unsigned char r,unsigned char g,unsigned char b
 void plot_pixel(int x,int y,unsigned char r,unsigned char g,unsigned char b);
 
 bool handle_object_intersection(int x, int y, Vector3& ray, Vector3& outIntersection);
-bool ray_intersect_triangle(int x, int y, Vector3& ray, Triangle& triangle, Vector3& out);
-bool ray_intersect_triangle_wrapper(int x, int y, Vector3& ray, Triangle& triangle, Vector3& out);
-bool ray_intersect_sphere(const Vector3& camera, int x, int y, Vector3& ray, Sphere& sphere, Vector3& out, Vector3& outPhong);
-bool ray_intersect_sphere_wrapper(int x, int y, Vector3& ray, Sphere& sphere, Vector3& out);
+bool isShadowedPixel(int x, int y, const Vector3& lightPosition, const Vector3& intersection);
 
 //MODIFY THIS FUNCTION
 void draw_scene()
@@ -214,35 +211,6 @@ void draw_scene()
     glFlush();
   }
   printf("Done!\n"); fflush(stdout);
-}
-
-bool handle_object_intersection(int x, int y, Vector3& ray, Vector3& outIntersection)
-{
-	bool intersects = false;
-
-	for (int i = 0; i < num_triangles; ++i)
-	{
-		intersects |= ray_intersect_triangle_wrapper(x, y, ray, triangles[i], outIntersection);
-	}
-	for (int i = 0; i < num_spheres; ++i)
-	{
-		intersects |= ray_intersect_sphere_wrapper(x, y, ray, spheres[i], outIntersection);
-	}
-	
-	return intersects;
-}
-
-bool ray_intersect_triangle_wrapper(int x, int y, Vector3& ray, Triangle& triangle, Vector3& out)
-{
-	if (ray_intersect_triangle(x, y, ray, triangle, out))
-	{
-		plot_pixel(x, y,
-			0,
-			0,
-			0);
-		return true;
-	}
-	return false;
 }
 
 bool ray_intersect_triangle(int x, int y, Vector3& ray, Triangle& triangle, Vector3& out)
@@ -293,44 +261,22 @@ bool ray_intersect_triangle(int x, int y, Vector3& ray, Triangle& triangle, Vect
 	return false;
 }
 
-bool ray_intersect_sphere_wrapper(int x, int y, Vector3& v, Sphere& sphere, Vector3& out)
+bool ray_intersect_triangle_wrapper(int x, int y, Vector3& ray, Triangle& triangle, Vector3& out)
 {
-	Vector3 outPhong;
-	Vector3 camera(0, 0, 0);
-	if (ray_intersect_sphere(camera, x, y, v, sphere, out, outPhong))
+	if (ray_intersect_triangle(x, y, ray, triangle, out))
 	{
 		plot_pixel(x, y,
-			outPhong.x * MAX_COLOR,
-			outPhong.y * MAX_COLOR,
-			outPhong.z * MAX_COLOR);
+			0,
+			0,
+			0);
 		return true;
 	}
 	return false;
 }
 
-bool isShadowedPixel(int x, int y, const Vector3& lightPosition, const Vector3& intersection)
-{
-	Vector3 ray = Sub(lightPosition, intersection);
-	Vector3 outIntersection;
-	Vector3 outPhong;
-	for (int i = 0; i < num_triangles; ++i)
-	{
-		if (ray_intersect_triangle(x, y, ray, triangles[i], outIntersection))
-		{
-			return true;
-		}
-	}
-	for (int i = 0; i < num_spheres; ++i)
-	{
-		if (ray_intersect_sphere(intersection, x, y, ray, spheres[i], outIntersection, outPhong))
-		{
-			return true;
-		}
-	}
-	return false;
-}
 
-bool ray_intersect_sphere(const Vector3& camera, int x, int y, Vector3& v,  Sphere& sphere, Vector3& out, Vector3& outPhong)
+
+bool ray_intersect_sphere(const Vector3& camera, int x, int y, Vector3& v,  Sphere& sphere, Vector3& out, Vector3& outPhong, bool doLighting)
 {
 	Vector3 sphere_position(sphere.position[0], sphere.position[1], sphere.position[2]);
 	sphere_position = Sub(sphere_position, camera);
@@ -353,34 +299,91 @@ bool ray_intersect_sphere(const Vector3& camera, int x, int y, Vector3& v,  Sphe
 	if (P.z >= out.z)
 	{
 		out = P;
-		// Lighting
-		Vector3 phong(AMBIENT_COLOR, AMBIENT_COLOR, AMBIENT_COLOR);
-		for (int i = 0; i < num_lights; ++i)
+
+		if (doLighting)
 		{
-			// Conversion to Vector3s
-			Vector3 lightPosition(lights[i].position[0], lights[i].position[1], lights[i].position[2]);
-			Vector3 lightColor(lights[i].color[0],lights[i].color[1], lights[i].color[2]);
-			Vector3 color(sphere.color_diffuse[0], sphere.color_diffuse[1], sphere.color_diffuse[2]);
-			Vector3 specular(sphere.color_specular[0], sphere.color_specular[1], sphere.color_specular[2]);
-
-			// Lighting calculations
-			Vector3 L = Sub(lightPosition, P); Vector3::Normalize(L);
-			Vector3 N = Sub(P, sphere_position); Vector3::Normalize(N);
-			Vector3 R = Reflect(Negate(L), N);
-			Vector3 V = Sub(camera, P); Vector3::Normalize(V);
-
-			if (!isShadowedPixel(x, y, lightPosition, P))
+			// Lighting
+			Vector3 phong(AMBIENT_COLOR, AMBIENT_COLOR, AMBIENT_COLOR);
+			for (int i = 0; i < num_lights; ++i)
 			{
-				phong = Add(phong, Multiply(color, Saturate(Dot(N, L))));
-				phong = Add(phong, Multiply(specular, pow(Saturate(Dot(R, V)), sphere.shininess)));
-				phong = Multiply(lightColor, phong);
+				// Conversion to Vector3s
+				Vector3 lightPosition(lights[i].position[0], lights[i].position[1], lights[i].position[2]);
+				Vector3 lightColor(lights[i].color[0], lights[i].color[1], lights[i].color[2]);
+				Vector3 color(sphere.color_diffuse[0], sphere.color_diffuse[1], sphere.color_diffuse[2]);
+				Vector3 specular(sphere.color_specular[0], sphere.color_specular[1], sphere.color_specular[2]);
+
+				// Lighting calculations
+				Vector3 L = Sub(lightPosition, P); Vector3::Normalize(L);
+				Vector3 N = Sub(P, sphere_position); Vector3::Normalize(N);
+				Vector3 R = Reflect(Negate(L), N);
+				Vector3 V = Sub(camera, P); Vector3::Normalize(V);
+
+				if (!isShadowedPixel(x, y, lightPosition, P))
+				{
+					phong = Add(phong, Multiply(color, Saturate(Dot(N, L))));
+					phong = Add(phong, Multiply(specular, pow(Saturate(Dot(R, V)), sphere.shininess)));
+					phong = Multiply(lightColor, phong);
+				}
 			}
-		}
 		outPhong = phong;
 		Saturate(outPhong);
+		}
 		return true;
 	}
 	return false;
+}
+
+bool ray_intersect_sphere_wrapper(int x, int y, Vector3& v, Sphere& sphere, Vector3& out)
+{
+	Vector3 outPhong;
+	Vector3 camera(0, 0, 0);
+	if (ray_intersect_sphere(camera, x, y, v, sphere, out, outPhong, true))
+	{
+		plot_pixel(x, y,
+			(char)(outPhong.x * MAX_COLOR),
+			(char)(outPhong.y * MAX_COLOR),
+			(char) (outPhong.z * MAX_COLOR));
+		return true;
+	}
+	return false;
+}
+
+bool isShadowedPixel(int x, int y, const Vector3& lightPosition, const Vector3& intersection)
+{
+	Vector3 ray = Sub(lightPosition, intersection);
+	Vector3 outIntersection;
+	Vector3 outPhong;
+	for (int i = 0; i < num_triangles; ++i)
+	{
+		if (ray_intersect_triangle(x, y, ray, triangles[i], outIntersection))
+		{
+			return true;
+		}
+	}
+	for (int i = 0; i < num_spheres; ++i)
+	{
+		if (ray_intersect_sphere(intersection, x, y, ray, spheres[i], outIntersection, outPhong, false))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool handle_object_intersection(int x, int y, Vector3& ray, Vector3& outIntersection)
+{
+	bool intersects = false;
+
+	for (int i = 0; i < num_triangles; ++i)
+	{
+		intersects |= ray_intersect_triangle_wrapper(x, y, ray, triangles[i], outIntersection);
+	}
+	for (int i = 0; i < num_spheres; ++i)
+	{
+		intersects |= ray_intersect_sphere_wrapper(x, y, ray, spheres[i], outIntersection);
+	}
+
+	return intersects;
 }
 
 void plot_pixel_display(int x, int y, unsigned char r, unsigned char g, unsigned char b)
