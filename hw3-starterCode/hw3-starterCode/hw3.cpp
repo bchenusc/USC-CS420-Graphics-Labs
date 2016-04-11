@@ -32,6 +32,8 @@
 #include "Light.h"
 #include "Triangle.h"
 #include "Sphere.h"
+#include "TriangleIntersector.h"
+#include "SphereIntersector.h"
 
 #define MAX_TRIANGLES 20000
 #define MAX_SPHERES 100
@@ -54,8 +56,6 @@ int mode = MODE_DISPLAY;
 //the field of view of the camera
 #define fov 60.0
 #define camScale 8.0
-
-
 
 unsigned char buffer[HEIGHT][WIDTH][3];
 
@@ -106,109 +106,41 @@ bool intersectScene(int x, int y, const Vector3& ray)
 {
 	Vector3 cameraPos; // Default is set to 0.
 
-	// TOOD: Triangles Here.
-
+	TriangleIntersector triangleIntersector;
+	Vector3 outTriangleIntersectionPoint;
+	Triangle* triIntersect = triangleIntersector.TestIntersectionArray(ray, cameraPos, triangles, num_triangles, outTriangleIntersectionPoint);
+	
 	SphereIntersector sphereIntersector;
-	Vector3 outIntersectionPoint;
-	Sphere* sphIntersect = sphereIntersector.TestIntersectionArray(ray, cameraPos, spheres, num_spheres, outIntersectionPoint);
-	if (sphIntersect != NULL)
+	Vector3 outSphereIntersectionPoint;
+	Sphere* sphIntersect = sphereIntersector.TestIntersectionArray(ray, cameraPos, spheres, num_spheres, outSphereIntersectionPoint);
+	
+	bool drawTrianglePixel = triIntersect != NULL;
+	bool drawSpherePixel = sphIntersect != NULL;
+
+	if (triIntersect != NULL && sphIntersect != NULL)
 	{
-		// A sphere gets intersected.
-		Vector3 phong = sphereIntersector.CalculateLighting(cameraPos, *sphIntersect, outIntersectionPoint, lights, num_lights,
+		drawTrianglePixel = outTriangleIntersectionPoint.z > outSphereIntersectionPoint.z;
+		drawSpherePixel = outTriangleIntersectionPoint.z <= outSphereIntersectionPoint.z;
+	}
+
+	if (drawTrianglePixel)
+	{
+		Vector3 phong = triangleIntersector.CalculateLighting(cameraPos, *triIntersect, outTriangleIntersectionPoint, lights, num_lights,
 			spheres, num_spheres, triangles, num_triangles);
 		plot_pixel(x, y, (char)(phong.x * MAX_COLOR), (char)(phong.y * MAX_COLOR), (char)(phong.z * MAX_COLOR));
 		return true;
 	}
-	return false;
-}
-
-bool ray_intersect_triangle(int x, int y, Vector3& ray, Triangle& triangle, Vector3& out)
-{
-	Vector3 A(triangle.v[0].position[0], triangle.v[0].position[1], triangle.v[0].position[2]);
-	Vector3 B(triangle.v[1].position[0], triangle.v[1].position[1], triangle.v[1].position[2]);
-	Vector3 C(triangle.v[2].position[0], triangle.v[2].position[1], triangle.v[2].position[2]);
-
-	Vector3 AB = B.Subtract(A);
-	Vector3 AC = C.Subtract(A);
-
-	Vector3 planeNormal = AB.Cross(AC);
-	Vector3::Normalize(planeNormal);
-
-	// Find d using P dot N + d = 0.
-	// Sub P in for a triangle point.
-	double d = -1 * A.Dot(planeNormal);
-
-	// END - Finish solving the plane equation.
-
-	// Ray - Plane intersection
-	// t = -(Po dot N + d) / (V dot N)
-	// P = Po + tV
-	double VDotN = ray.Dot(planeNormal);
-	if (VDotN == 0) return false;
-
-
-	//double t = -1 * (Dot(V_ZERO, planeNormal) + d) / VDotN;
-
-	//double t = -1 * (Dot(V_ZERO, planeNormal) + d) / VDotN;
-	//Vector3 P = Multiply(ray, t);
-
-	/*if (P.z >= out.z)
+	
+	if (drawSpherePixel)
 	{
-		Vector3 ABxAP;
-		Vector3 BCxBP;
-		Vector3 CAxCP;
-		Cross(AB, Sub(P, A), ABxAP);
-		Cross(Sub(C, B), Sub(P, B), BCxBP);
-		Cross(Sub(A, C), Sub(P, C), CAxCP);
-
-		bool ret = false;
-
-		if (Dot(ABxAP, BCxBP) > 0 && Dot(ABxAP, CAxCP) > 0 && Dot(BCxBP, CAxCP) > 0 
-			|| Dot(ABxAP, BCxBP) < 0 && Dot(ABxAP, CAxCP) < 0 && Dot(BCxBP, CAxCP) < 0)
-		{
-			out = P;
-			return true;
-		}
-	}*/
-	return false;
-}
-
-bool ray_intersect_triangle_wrapper(int x, int y, Vector3& ray, Triangle& triangle, Vector3& out)
-{
-	if (ray_intersect_triangle(x, y, ray, triangle, out))
-	{
-		plot_pixel(x, y,
-			0,
-			0,
-			0);
+		Vector3 phong = sphereIntersector.CalculateLighting(cameraPos, *sphIntersect, outSphereIntersectionPoint, lights, num_lights,
+			spheres, num_spheres, triangles, num_triangles);
+		plot_pixel(x, y, (char)(phong.x * MAX_COLOR), (char)(phong.y * MAX_COLOR), (char)(phong.z * MAX_COLOR));
 		return true;
 	}
+
 	return false;
 }
-
-
-
-/*bool isShadowedPixel(int x, int y, const Vector3& lightPosition, const Vector3& intersection)
-{
-	Vector3 ray = Sub(lightPosition, intersection);
-	Vector3 outIntersection;
-	Vector3 outPhong;
-	for (int i = 0; i < num_triangles; ++i)
-	{
-		if (ray_intersect_triangle(x, y, ray, triangles[i], outIntersection))
-		{
-			return true;
-		}
-	}
-	for (int i = 0; i < num_spheres; ++i)
-	{
-		if (ray_intersect_sphere(intersection, x, y, ray, spheres[i], outIntersection, outPhong, false))
-		{
-			return true;
-		}
-	}
-	return false;
-}*/
 
 
 void plot_pixel_display(int x, int y, unsigned char r, unsigned char g, unsigned char b)

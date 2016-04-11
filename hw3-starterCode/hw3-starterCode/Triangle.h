@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Vector3.h"
+
 struct Vertex
 {
 	double position[3];

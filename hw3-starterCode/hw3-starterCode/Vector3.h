@@ -67,17 +67,20 @@ struct Vector3
 	}
 };
 
-double Saturate(double i)
+class MathTools
 {
-	if (i <= 0) return 0;
-	if (i >= 1) return 1;
-	return i;
-}
+public:
+	static double Saturate(double i)
+	{
+		if (i <= 0) return 0;
+		if (i >= 1) return 1;
+		return i;
+	}
 
-void Saturate(Vector3& v)
-{
-	v.x = Saturate(v.x);
-	v.y = Saturate(v.y);
-	v.z = Saturate(v.z);
-}
-
+	static void Saturate(Vector3& v)
+	{
+		v.x = Saturate(v.x);
+		v.y = Saturate(v.y);
+		v.z = Saturate(v.z);
+	}
+};

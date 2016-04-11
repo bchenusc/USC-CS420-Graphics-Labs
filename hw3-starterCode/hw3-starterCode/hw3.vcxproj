@@ -80,6 +80,8 @@
   <ItemGroup>
     <ClCompile Include="..\external\imageIO\imageIO.cpp" />
     <ClCompile Include="hw3.cpp" />
+    <ClCompile Include="SphereIntersector.cpp" />
+    <ClCompile Include="TriangleIntersector.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\external\imageIO\imageFormats.h" />
@@ -87,7 +89,9 @@
     <ClInclude Include="Defines.h" />
     <ClInclude Include="Light.h" />
     <ClInclude Include="Sphere.h" />
+    <ClInclude Include="SphereIntersector.h" />
     <ClInclude Include="Triangle.h" />
+    <ClInclude Include="TriangleIntersector.h" />
     <ClInclude Include="Vector3.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

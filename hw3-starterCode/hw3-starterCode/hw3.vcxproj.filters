@@ -24,6 +24,12 @@
     <ClCompile Include="..\external\imageIO\imageIO.cpp">
       <Filter>imageIO</Filter>
     </ClCompile>
+    <ClCompile Include="SphereIntersector.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TriangleIntersector.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\external\imageIO\imageFormats.h">
@@ -45,6 +51,12 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="Defines.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SphereIntersector.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TriangleIntersector.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
