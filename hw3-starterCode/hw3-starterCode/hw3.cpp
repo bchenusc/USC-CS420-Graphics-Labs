@@ -50,6 +50,9 @@ int mode = MODE_DISPLAY;
 #define camScale 8.0
 #define MAX_RAYCAST_DIST 10000.0
 
+#define MAX_COLOR 255
+#define AMBIENT_COLOR 50
+
 unsigned char buffer[HEIGHT][WIDTH][3];
 
 struct Vertex
@@ -139,6 +142,22 @@ void Cross(const Vector3& a, const Vector3& b, Vector3& out)
 	out.z = a.x * b.y - a.y * b.x;
 }
 
+Vector3 Reflect(const Vector3& v, const Vector3& n)
+{
+
+	return Sub(v, Multiply(n, 2 * Dot(v, n)));
+}
+
+Vector3 Normalize(const Vector3& a)
+{
+	double length = sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
+	Vector3 v;
+	v.x = v.x / length;
+	v.y = v.y / length;
+	v.z = v.z / length;
+	return v;
+}
+
 Triangle triangles[MAX_TRIANGLES];
 Sphere spheres[MAX_SPHERES];
 Light lights[MAX_LIGHTS];
@@ -152,9 +171,9 @@ void plot_pixel_display(int x,int y,unsigned char r,unsigned char g,unsigned cha
 void plot_pixel_jpeg(int x,int y,unsigned char r,unsigned char g,unsigned char b);
 void plot_pixel(int x,int y,unsigned char r,unsigned char g,unsigned char b);
 
-bool handle_object_intersection(Vector3& ray, Vector3& outIntersection);
-bool ray_intersect_triangle(Vector3& ray, Triangle& triangle, Vector3& out);
-bool ray_intersect_sphere(Vector3& ray, Sphere& sphere, Vector3& out);
+bool handle_object_intersection(int x, int y, Vector3& ray, Vector3& outIntersection);
+bool ray_intersect_triangle(int x, int y, Vector3& ray, Triangle& triangle, Vector3& out);
+bool ray_intersect_sphere(int x, int y, Vector3& ray, Sphere& sphere, Vector3& out);
 
 //MODIFY THIS FUNCTION
 void draw_scene()
@@ -172,13 +191,9 @@ void draw_scene()
 
 		Vector3 intersection(-MAX_RAYCAST_DIST, -MAX_RAYCAST_DIST, -MAX_RAYCAST_DIST);
 		// Loop through objets
-		if (handle_object_intersection(ray, intersection))
+		if (!handle_object_intersection(x,y, ray, intersection))
 		{
-			plot_pixel(x, y, 0, 0, 0);
-		}
-		else
-		{
-			plot_pixel(x, y, 100, 100, 100);
+			plot_pixel(x, y, MAX_COLOR, MAX_COLOR, MAX_COLOR);
 		}
     }
     glEnd();
@@ -187,24 +202,24 @@ void draw_scene()
   printf("Done!\n"); fflush(stdout);
 }
 
-bool handle_object_intersection(Vector3& ray, Vector3& outIntersection)
+bool handle_object_intersection(int x, int y, Vector3& ray, Vector3& outIntersection)
 {
 	bool intersects = false;
 
 	for (int i = 0; i < num_triangles; ++i)
 	{
-		intersects |= ray_intersect_triangle(ray, triangles[i], outIntersection);
+		intersects |= ray_intersect_triangle(x, y, ray, triangles[i], outIntersection);
 	}
 
 	for (int i = 0; i < num_spheres; ++i)
 	{
-		intersects |= ray_intersect_sphere(ray, spheres[i], outIntersection);
+		intersects |= ray_intersect_sphere(x, y, ray, spheres[i], outIntersection);
 	}
 	
 	return intersects;
 }
 
-bool ray_intersect_triangle(Vector3& ray, Triangle& triangle, Vector3& out)
+bool ray_intersect_triangle(int x, int y, Vector3& ray, Triangle& triangle, Vector3& out)
 {
 	Vector3 A(triangle.v[0].position[0], triangle.v[0].position[1], triangle.v[0].position[2]);
 	Vector3 B(triangle.v[1].position[0], triangle.v[1].position[1], triangle.v[1].position[2]);
@@ -231,32 +246,41 @@ bool ray_intersect_triangle(Vector3& ray, Triangle& triangle, Vector3& out)
 	double t = -1 * (Dot(V_ZERO, planeNormal) + d) / VDotN;
 	Vector3 P = Multiply(ray, t);
 
-	if (P.z > out.z)
-		out = P;
+	if (P.z >= out.z)
+	{
+		Vector3 ABxAP;
+		Vector3 BCxBP;
+		Vector3 CAxCP;
+		Cross(AB, Sub(P, A), ABxAP);
+		Cross(Sub(C, B), Sub(P, B), BCxBP);
+		Cross(Sub(A, C), Sub(P, C), CAxCP);
 
-	Vector3 ABxAP;
-	Vector3 BCxBP;
-	Vector3 CAxCP;
-	Cross(AB, Sub(P, A), ABxAP);
-	Cross(Sub(C, B), Sub(P, B), BCxBP);
-	Cross(Sub(A, C), Sub(P, C), CAxCP);
+		bool ret = false;
 
-	if (Dot(ABxAP, BCxBP) > 0 && Dot(ABxAP, CAxCP) > 0 && Dot(BCxBP, CAxCP) > 0)
-		return true;
-	if (Dot(ABxAP, BCxBP) < 0 && Dot(ABxAP, CAxCP) < 0 && Dot(BCxBP, CAxCP) < 0)
-		return true;
+		if (Dot(ABxAP, BCxBP) > 0 && Dot(ABxAP, CAxCP) > 0 && Dot(BCxBP, CAxCP) > 0 
+			|| Dot(ABxAP, BCxBP) < 0 && Dot(ABxAP, CAxCP) < 0 && Dot(BCxBP, CAxCP) < 0)
+		{
+			out = P;
+			plot_pixel(x, y, 
+				triangle.v[0].color_diffuse[0], 
+				triangle.v[0].color_diffuse[0],
+				triangle.v[0].color_diffuse[0]);
+			return true;
+		}
+	}
+	
 	return false;
 }
 
-bool ray_intersect_sphere(Vector3& v,  Sphere& sphere, Vector3& out)
+bool ray_intersect_sphere(int x, int y, Vector3& v,  Sphere& sphere, Vector3& out)
 {
-	Vector3 position(sphere.position[0], sphere.position[1], sphere.position[2]);
-	double opposite = Dot(position, v);
+	Vector3 sphere_position(sphere.position[0], sphere.position[1], sphere.position[2]);
+	double opposite = Dot(sphere_position, v);
 
 	// Sphere is in opposite direction aka behind camera.
 	if (opposite < 0) return false;
 
-	double adjacentSqr = Dot(position, position) - opposite * opposite;
+	double adjacentSqr = Dot(sphere_position, sphere_position) - opposite * opposite;
 
 	// Ray's distance is greater than the radius of the sphere.
 	// Thus ray does not intersect sphere.
@@ -267,9 +291,34 @@ bool ray_intersect_sphere(Vector3& v,  Sphere& sphere, Vector3& out)
 	double intersection1 = opposite - offset;
 
 	Vector3 P = Multiply(v, intersection1);
-	if (P.z > out.z)
+	if (P.z >= out.z)
+	{
 		out = P;
-	return true;
+		
+		// Lighting
+		/*
+		Vector3 phong(AMBIENT_COLOR, AMBIENT_COLOR, AMBIENT_COLOR);
+		for (int i = 0; i < num_lights; ++i)
+		{
+			// Conversion to Vector3s
+			Vector3 lightPosition(lights[i].position[0], lights[i].position[1], lights[i].position[2]);
+			
+			// Lighting calculations
+			Vector3 L = Sub(lightPosition, P); Vector3::Normalize(L);
+			Vector3 N = Sub(P, sphere_position);
+			Vector3 R = 
+
+
+		}
+		*/
+
+		plot_pixel(x, y, 
+			sphere.color_diffuse[0] * MAX_COLOR, 
+			sphere.color_diffuse[1] * MAX_COLOR,
+			sphere.color_diffuse[2] * MAX_COLOR);
+		return true;
+	}
+	return false;
 }
 
 void plot_pixel_display(int x, int y, unsigned char r, unsigned char g, unsigned char b)
