@@ -81,7 +81,7 @@ void TriangleIntersector::CalculateColor(const Vector3& P, const Triangle& trian
 
 Vector3 TriangleIntersector::CalculateLighting(const Vector3& origin, const Triangle& triangle,
 	const Vector3& P/*intersection*/, Light* lights, unsigned count, Sphere* spheres, int num_spheres,
-	Triangle* triangles, int num_triangles)
+	Triangle* triangles, int num_triangles, const Vector3& ambient)
 {
 	Vector3 A(triangle.v[0].position[0], triangle.v[0].position[1], triangle.v[0].position[2]);
 	Vector3 B(triangle.v[1].position[0], triangle.v[1].position[1], triangle.v[1].position[2]);
@@ -96,7 +96,7 @@ Vector3 TriangleIntersector::CalculateLighting(const Vector3& origin, const Tria
 	Vector3::Normalize(N);
 
 	// Lighting
-	Vector3 phong(AMBIENT_COLOR / 255.0, AMBIENT_COLOR / 255.0, AMBIENT_COLOR / 255.0);
+	Vector3 phong(ambient);
 	for (unsigned i = 0; i < count; ++i)
 	{
 		// Conversion to Vector3s

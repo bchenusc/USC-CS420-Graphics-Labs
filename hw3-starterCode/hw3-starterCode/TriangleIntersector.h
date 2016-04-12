@@ -12,7 +12,7 @@ struct TriangleIntersector
 	// Returns the saturated phong values.
 	Vector3 CalculateLighting(const Vector3& origin, const Triangle& triangle,
 		const Vector3& P/*intersection*/, Light* lights, unsigned count, Sphere* spheres, int num_spheres,
-		Triangle* triangles, int num_triangles);
+		Triangle* triangles, int num_triangles, const Vector3& ambient);
 
 private:
 	// Returns true if successfully intersects.

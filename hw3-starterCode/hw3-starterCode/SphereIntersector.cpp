@@ -52,12 +52,12 @@ bool SphereIntersector::TestIntersection(const Vector3& ray, const Vector3& orig
 
 Vector3 SphereIntersector::CalculateLighting(const Vector3& origin, const Sphere& sphere,
 	const Vector3& P/*intersection*/, Light* lights, unsigned count, Sphere* spheres, int num_spheres,
-	Triangle* triangles, int num_triangles)
+	Triangle* triangles, int num_triangles, const Vector3& ambient)
 {
 	Vector3 spherePos(sphere.position[0], sphere.position[1], sphere.position[2]);
 
 	// Lighting
-	Vector3 phong(AMBIENT_COLOR / 255.0, AMBIENT_COLOR / 255.0, AMBIENT_COLOR / 255.0);
+	Vector3 phong(ambient);
 	for (unsigned i = 0; i < count; ++i)
 	{
 		// Conversion to Vector3s

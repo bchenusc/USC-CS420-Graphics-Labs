@@ -123,10 +123,12 @@ bool intersectScene(int x, int y, const Vector3& ray)
 		drawSpherePixel = outTriangleIntersectionPoint.z <= outSphereIntersectionPoint.z;
 	}
 
+	Vector3 ambient(ambient_light[0], ambient_light[1], ambient_light[2]);
+
 	if (drawTrianglePixel)
 	{
 		Vector3 phong = triangleIntersector.CalculateLighting(cameraPos, *triIntersect, outTriangleIntersectionPoint, lights, num_lights,
-			spheres, num_spheres, triangles, num_triangles);
+			spheres, num_spheres, triangles, num_triangles, ambient);
 		plot_pixel(x, y, (char)(phong.x * MAX_COLOR), (char)(phong.y * MAX_COLOR), (char)(phong.z * MAX_COLOR));
 		return true;
 	}
@@ -134,7 +136,7 @@ bool intersectScene(int x, int y, const Vector3& ray)
 	if (drawSpherePixel)
 	{
 		Vector3 phong = sphereIntersector.CalculateLighting(cameraPos, *sphIntersect, outSphereIntersectionPoint, lights, num_lights,
-			spheres, num_spheres, triangles, num_triangles);
+			spheres, num_spheres, triangles, num_triangles, ambient);
 		plot_pixel(x, y, (char)(phong.x * MAX_COLOR), (char)(phong.y * MAX_COLOR), (char)(phong.z * MAX_COLOR));
 		return true;
 	}
@@ -164,8 +166,6 @@ void plot_pixel(int x, int y, unsigned char r, unsigned char g, unsigned char b)
 
 void save_jpg()
 {
-  printf("Saving JPEG file: %s\n", filename);
-
   ImageIO img(WIDTH, HEIGHT, 3, &buffer[0][0][0]);
   if (img.save(filename, ImageIO::FORMAT_JPEG) != ImageIO::OK)
     printf("Error in Saving\n");
